@@ -1,23 +1,36 @@
-from models import RoadmapNode
+from models import RoadmapNode, SubTask
+import uuid
 
 class RoadmapEngine:
     def __init__(self):
-        self.max_breadcrumbs = 10
+        self.max_phases = 5
 
-    def construct_visual_path(self, tasks: list) -> list:
+    def construct_visual_path(self, phases: list) -> list:
         nodes = []
-        for i, task_title in enumerate(tasks):
+        for i, phase in enumerate(phases):
+            subtasks = [
+                SubTask(
+                    subtask_id=str(uuid.uuid4()),
+                    title=subtask,
+                    is_completed=False,
+                    xp_value=50
+                )
+                for subtask in phase.get("subtasks", [])
+            ]
             nodes.append(RoadmapNode(
                 node_id=i,
-                title=task_title,
+                title=phase["category"],
+                category=phase["category"],
                 is_locked=True if i > 0 else False,
-                node_type=self._get_node_type(i),
-                position_index=i
+                node_type=self._get_node_type(i, len(phases)),
+                position_index=i,
+                xp_value=150,
+                subtasks=subtasks
             ))
         return nodes
 
-    def _get_node_type(self, index: int) -> str:
+    def _get_node_type(self, index: int, total: int) -> str:
         if index == 0: return "start"
-        if index == 9: return "finish"
-        if index == 4: return "milestone"
+        if index == total - 1: return "finish"
+        if index == total // 2: return "milestone"
         return "breadcrumb"

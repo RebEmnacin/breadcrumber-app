@@ -7,72 +7,74 @@ load_dotenv()
 
 class AtomizerAI:
     def __init__(self):
-        # The new SDK automatically looks for GOOGLE_API_KEY in env
         self.client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
         self.model_id = "gemini-2.5-flash"
 
-    async def _determine_scope(self, project_name: str) -> str:
-        prompt = (
-            f"Analyze the project '{project_name}'. "
-            "Return a JSON object with 'scope' (SHORT/LONG) and 'recommended_steps' (integer between 5 and 15)."
-            """You are a world-class Executive Function Consultant specializing in ADHD productivity. 
-            Your goal is to eliminate 'Task Paralysis' for the project: '{project_name}' ({category}).
-
-            ### STRATEGY: MICRO-ATOMIZATION
-            Since this is a {scope} project, you will focus on {scope_instruction}. 
-            Break this down into EXACTLY {step_count} nodes.
-
-            ### HARD RULES (LOGIC)
-            1. NO FLUFF: Every step must be a concrete, physical action.
-            2. BRAIN-DEAD START: Step 1 must be so easy it's impossible to fail (e.g., "Touch the keyboard," "Sit at the desk," "Open a blank tab").
-            3. 15-MINUTE CAP: No single step should take longer than 15 minutes of focused effort.
-            4. VERB-FIRST: Every string must start with a high-momentum verb (e.g., "Draft," "Gather," "Click," "Sketch").
-            5. NO SUB-LISTS: Do not include nested steps. One thought per breadcrumb.
-
-            ### OUTPUT FORMAT
-            - Return ONLY a raw JSON array of strings.
-            - NO markdown formatting (no ```json).
-            - NO conversational filler."""
-        )
-        try:
-            # New SDK syntax: models.generate_content
-            response = self.client.models.generate_content(
-                model=self.model_id, 
-                contents=prompt
-            )
-            return response.text.strip().upper()
-        except Exception as e:
-            print(f"Scope Error: {e}")
-            return "LONG"
-
     async def generate_roadmap(self, project_name: str, category: str) -> list:
-        scope = await self._determine_scope(project_name)
-        scope_instruction = "the entire project" if scope == "SHORT" else "only the FIRST PHASE"
-
         prompt = f"""
-        Break '{project_name}' ({category}) into tiny, 15-minute steps.
-        Focus on {scope_instruction}.
-        Return ONLY a JSON array of strings. 
-        Example: ["Step 1", "Step 2"]
-        """
-        
+You are an ADHD-friendly productivity coach specializing in breaking down creative and technical projects.
+
+Break the project '{project_name}' ({category}) into 3-5 major phases.
+For each phase, provide 3-5 tiny subtasks that each take no longer than 15 minutes.
+
+HARD RULES:
+1. Every subtask must start with a strong action verb (e.g. "Sketch", "Write", "Open", "List", "Draft").
+2. Each subtask must be concrete and physical — no vague steps.
+3. The first subtask of the first phase must be brain-dead easy (e.g. "Open a blank document").
+4. NO fluff, NO explanations, NO markdown.
+
+Return ONLY a raw JSON array in this exact format:
+[
+  {{
+    "category": "Phase Name",
+    "subtasks": ["Subtask 1", "Subtask 2", "Subtask 3"]
+  }}
+]
+"""
         try:
             response = self.client.models.generate_content(
-                model=self.model_id, 
+                model=self.model_id,
                 contents=prompt
             )
             return self._parse_ai_response(response.text)
         except Exception as e:
             print(f"Generation Error: {e}")
-            # Dynamic fallback that at least uses the project name
-            return [f"Plan {project_name}", "Gather materials", "Setup workspace", "Step 4", "Step 5", "Step 6", "Step 7", "Step 8", "Step 9", "Final Review"]
+            return [
+                {
+                    "category": "Pre-Production",
+                    "subtasks": [f"Open a blank document for {project_name}", "List 3 ideas", "Pick the best one"]
+                },
+                {
+                    "category": "Production",
+                    "subtasks": ["Draft the first section", "Review and refine", "Add details"]
+                },
+                {
+                    "category": "Finishing",
+                    "subtasks": ["Final review", "Share or publish", "Celebrate!"]
+                }
+            ]
 
     def _parse_ai_response(self, raw_text: str) -> list:
         try:
-            # The new SDK is better at stripping markdown, but we'll be safe
             clean_text = raw_text.replace("```json", "").replace("```", "").strip()
-            tasks = json.loads(clean_text)
-            return tasks
+            parsed = json.loads(clean_text)
+            # Validate it's a list of objects with category and subtasks
+            if isinstance(parsed, list) and all("category" in p and "subtasks" in p for p in parsed):
+                return parsed
+            raise ValueError("Invalid format")
         except Exception as e:
             print(f"Parsing Error: {e}")
-            return ["Start", "Research", "Draft", "Refine", "Complete"]
+            return [
+                {
+                    "category": "Getting Started",
+                    "subtasks": ["Open your workspace", "Write down your goal", "Set a 15-min timer"]
+                },
+                {
+                    "category": "Core Work",
+                    "subtasks": ["Draft the first part", "Review progress", "Refine and improve"]
+                },
+                {
+                    "category": "Wrap Up",
+                    "subtasks": ["Final check", "Save your work", "Mark as done!"]
+                }
+            ]
