@@ -1,0 +1,9 @@
+python -m venv venv
+venv\Scripts\activate
+
+pip install fastapi uvicorn google-genai  pydantic python-dotenv httpx
+
+
+python -m pip install --upgrade --force-reinstall fastapi uvicorn google-genai python-dotenv
+
+uvicorn main:app --reload

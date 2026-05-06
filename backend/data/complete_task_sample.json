@@ -1,0 +1,7 @@
+{
+      "user_id": "test_user_123",
+      "project_id": "paste_the_id_from_the_last_test",
+      "task_id": 0,
+      "session_minutes": 15,
+      "is_pomodoro_complete": true
+}
