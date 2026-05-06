@@ -1,16 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useStreak } from "./hooks/useStreak";
 
-// ── Per-tab project state ─────────────────────────────────────────────────────
-
+// ── Per-tab blank project factory ─────────────────────────────────────────────
 const blankProject = () => ({
   nodes: [], activeNode: 0, xp: 0, completedNodes: [],
-  title: "", desc: "", category: "",   // FIX 5: per-tab title/desc/category
-  fileUploaded: false,                  // FIX 3: track if file uploaded per tab
+  title: "", desc: "", category: "", hasRoadmap: false,
 });
 
 // ── Countdown Timer Hook ──────────────────────────────────────────────────────
-
 function useCountdownTimer() {
   const [totalSeconds, setTotalSeconds] = useState(25 * 60);
   const [remaining, setRemaining] = useState(25 * 60);
@@ -59,23 +56,25 @@ function useCountdownTimer() {
   return { remaining, isRunning, mode, setMode, start, pause, reset, setDuration, formatTime, pct, totalSeconds };
 }
 
-// ── Theme ─────────────────────────────────────────────────────────────────────
-
+// ── Themes ────────────────────────────────────────────────────────────────────
 const darkTheme = {
   bg: "#0E131C", panelBg: "#1e2235", cardBg: "#2d3450",
   border: "#3a3f5a", text: "#fff", subText: "#aab", dimText: "#778",
   mutedText: "#556", inputBg: "#1a1f35", trackBg: "#2a2f45",
-  isDark: true,
+  completedLine: "#ffffff", isDark: true,
+  scrollbar: "scrollbar-dark",
 };
 const lightTheme = {
   bg: "#e8eaf0", panelBg: "#f0f2f7", cardBg: "#ffffff",
   border: "#d0d4e4", text: "#1a1f35", subText: "#556", dimText: "#667",
   mutedText: "#99a", inputBg: "#e0e3ef", trackBg: "#d4d8eb",
-  isDark: false,
+  completedLine: "#4caf7d", isDark: false,
+  scrollbar: "scrollbar-light",
 };
 
-// ── Delete Confirm Modal ──────────────────────────────────────────────────────
+const ROW_H = 44;
 
+// ── Delete Confirm Modal ──────────────────────────────────────────────────────
 function DeleteConfirmModal({ projectLabel, onConfirm, onCancel, T }) {
   return (
     <div style={{ position:"fixed",inset:0,zIndex:1000,backgroundColor:"rgba(0,0,0,0.65)",display:"flex",alignItems:"center",justifyContent:"center" }}>
@@ -94,56 +93,35 @@ function DeleteConfirmModal({ projectLabel, onConfirm, onCancel, T }) {
   );
 }
 
-// ── FIX 7: Notification Bell Menu — left-aligned text ────────────────────────
-
+// ── Notification Bell Menu ────────────────────────────────────────────────────
 function BellMenu({ notifications, onClear, T }) {
   return (
-    <div style={{
-      position:"absolute",top:"calc(100% + 8px)",right:0,zIndex:500,
-      backgroundColor:T.panelBg,border:`1px solid ${T.border}`,
-      borderRadius:"14px",padding:"12px",minWidth:"280px",
-      boxShadow:"0 8px 32px rgba(0,0,0,0.35)",
-    }}>
+    <div style={{ position:"absolute",top:"calc(100% + 8px)",right:0,zIndex:500,backgroundColor:T.panelBg,border:`1px solid ${T.border}`,borderRadius:"14px",padding:"12px",minWidth:"280px",boxShadow:"0 8px 32px rgba(0,0,0,0.35)" }}>
       <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"10px" }}>
-        {/* FIX 7: left-aligned, uppercase label */}
         <span style={{ fontSize:"12px",fontWeight:"700",color:T.subText,letterSpacing:"1px",textTransform:"uppercase" }}>Notifications</span>
-        {notifications.length > 0 && (
-          <button onClick={onClear} style={{ background:"none",border:"none",color:"#ffbf6e",fontSize:"11px",cursor:"pointer",fontFamily:"inherit",fontWeight:"600" }}>Clear all</button>
-        )}
+        {notifications.length > 0 && <button onClick={onClear} style={{ background:"none",border:"none",color:"#ffbf6e",fontSize:"11px",cursor:"pointer",fontFamily:"inherit",fontWeight:"600" }}>Clear all</button>}
       </div>
       {notifications.length === 0 ? (
-        <div style={{ fontSize:"13px",color:T.mutedText,textAlign:"left",padding:"12px 0" }}>No notifications yet</div>
-      ) : (
-        notifications.map((n,i) => (
-          <div key={i} style={{ display:"flex",alignItems:"flex-start",gap:"10px",padding:"8px 0",borderTop:i>0?`1px solid ${T.border}`:"none" }}>
-            <span style={{ fontSize:"18px",flexShrink:0 }}>{n.icon}</span>
-            {/* FIX 7: text left-aligned */}
-            <div style={{ textAlign:"left" }}>
-              <div style={{ fontSize:"13px",fontWeight:"600",color:T.text,marginBottom:"2px" }}>{n.title}</div>
-              <div style={{ fontSize:"11px",color:T.subText }}>{n.body}</div>
-            </div>
+        <div style={{ fontSize:"13px",color:T.mutedText,padding:"12px 0" }}>No notifications yet</div>
+      ) : notifications.map((n,i) => (
+        <div key={i} style={{ display:"flex",alignItems:"flex-start",gap:"10px",padding:"8px 0",borderTop:i>0?`1px solid ${T.border}`:"none" }}>
+          <span style={{ fontSize:"18px",flexShrink:0 }}>{n.icon}</span>
+          <div>
+            <div style={{ fontSize:"13px",fontWeight:"600",color:T.text,marginBottom:"2px" }}>{n.title}</div>
+            <div style={{ fontSize:"11px",color:T.subText }}>{n.body}</div>
           </div>
-        ))
-      )}
+        </div>
+      ))}
     </div>
   );
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-
 function SidebarIcon({ onClick, title, children, active, T }) {
   const [h, setH] = useState(false);
   return (
-    <button style={{
-      background:"none",border:"none",cursor:"pointer",borderRadius:"10px",
-      display:"flex",alignItems:"center",justifyContent:"center",
-      width:"38px",height:"38px",transition:"color 0.2s, background 0.2s",
-      // FIX 6: use T.text for color so it works in both light and dark mode
-      color: active||h ? T.text : T.dimText,
-      backgroundColor: active||h ? T.cardBg : "transparent",
-    }}
-      onClick={onClick} title={title}
-      onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}>
+    <button style={{ background:"none",border:"none",cursor:"pointer",borderRadius:"10px",display:"flex",alignItems:"center",justifyContent:"center",width:"38px",height:"38px",transition:"color 0.2s, background 0.2s",color:active||h?T.text:T.dimText,backgroundColor:active||h?T.cardBg:"transparent" }}
+      onClick={onClick} title={title} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}>
       {children}
     </button>
   );
@@ -151,34 +129,18 @@ function SidebarIcon({ onClick, title, children, active, T }) {
 
 function Sidebar({ onTimerToggle, isRunning, darkMode, onToggleDark, T }) {
   return (
-    // FIX 6: use T.panelBg so sidebar background works in light mode
     <div style={{ backgroundColor:T.panelBg,width:"56px",minWidth:"56px",padding:"16px 8px",borderRadius:"30px",display:"flex",flexDirection:"column",alignItems:"center",gap:"8px",flexShrink:0 }}>
       <SidebarIcon onClick={onTimerToggle} title="Timer" active={isRunning} T={T}>
-        {/* FIX 6: stroke uses currentColor, inherits from button color */}
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-        </svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       </SidebarIcon>
       <SidebarIcon title="Camera" T={T}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-          <circle cx="12" cy="13" r="4"/>
-        </svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
       </SidebarIcon>
-      <SidebarIcon onClick={onToggleDark} title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"} T={T}>
-        {/* FIX 6: always visible SVG icons using currentColor */}
+      <SidebarIcon onClick={onToggleDark} title={darkMode ? "Light Mode" : "Dark Mode"} T={T}>
         {darkMode ? (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="5"/>
-            <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-            <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-          </svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
         ) : (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-          </svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         )}
       </SidebarIcon>
     </div>
@@ -186,7 +148,6 @@ function Sidebar({ onTimerToggle, isRunning, darkMode, onToggleDark, T }) {
 }
 
 // ── Nav ───────────────────────────────────────────────────────────────────────
-
 function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, streak, notifications, onClearNotifs, T }) {
   const [pendingDelete, setPendingDelete] = useState(null);
   const [bellOpen, setBellOpen] = useState(false);
@@ -194,27 +155,21 @@ function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, streak, notif
 
   useEffect(() => {
     if (!bellOpen) return;
-    const handler = (e) => { if (bellRef.current && !bellRef.current.contains(e.target)) setBellOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    const h = (e) => { if (bellRef.current && !bellRef.current.contains(e.target)) setBellOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
   }, [bellOpen]);
-
-  const handleDeleteClick = (e, i) => { e.stopPropagation(); setPendingDelete(i); };
-  const confirmDelete = () => { onDeleteTab(pendingDelete); setPendingDelete(null); };
-  const unread = notifications.length;
 
   return (
     <>
-      {pendingDelete !== null && (
-        <DeleteConfirmModal projectLabel={tabs[pendingDelete]?.label} onConfirm={confirmDelete} onCancel={() => setPendingDelete(null)} T={T} />
-      )}
+      {pendingDelete !== null && <DeleteConfirmModal projectLabel={tabs[pendingDelete]?.label} onConfirm={() => { onDeleteTab(pendingDelete); setPendingDelete(null); }} onCancel={() => setPendingDelete(null)} T={T} />}
       <div style={{ display:"flex",alignItems:"flex-end",backgroundColor:T.bg,flexShrink:0 }}>
         {tabs.map((tab,i) => (
           <div key={tab.id} style={{ position:"relative",display:"inline-flex",marginRight:"4px" }}>
             <button style={{ backgroundColor:activeTab===i?T.cardBg:T.panelBg,padding:"10px 36px 10px 16px",borderRadius:"12px 12px 0 0",color:activeTab===i?T.text:T.dimText,cursor:"pointer",fontSize:"14px",fontWeight:activeTab===i?"600":"400",userSelect:"none",border:"none",fontFamily:"inherit",lineHeight:1.4 }}
               onClick={() => onTabClick(i)}>{tab.label}</button>
             {tabs.length > 1 && (
-              <button onClick={(e) => handleDeleteClick(e,i)} title="Delete project"
+              <button onClick={e=>{e.stopPropagation();setPendingDelete(i);}} title="Delete project"
                 style={{ position:"absolute",top:"5px",right:"5px",background:"none",border:"none",color:activeTab===i?"#ff7c7c":T.mutedText,cursor:"pointer",fontSize:"11px",lineHeight:1,padding:"0 2px",fontFamily:"inherit",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",width:"14px",height:"14px" }}
                 onMouseEnter={e=>e.currentTarget.style.color="#ff4444"}
                 onMouseLeave={e=>e.currentTarget.style.color=activeTab===i?"#ff7c7c":T.mutedText}
@@ -229,22 +184,15 @@ function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, streak, notif
             <span style={{ fontSize:"18px",fontWeight:"bold",color:T.text,lineHeight:1 }}>{streak}</span>
           </div>
           <div ref={bellRef} style={{ position:"relative" }}>
-            <button
-              onClick={() => setBellOpen(o => !o)}
+            <button onClick={()=>setBellOpen(o=>!o)}
               style={{ background:"none",border:"none",color:bellOpen?T.text:T.dimText,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",width:"32px",height:"32px",borderRadius:"8px",transition:"color 0.2s",padding:0,position:"relative" }}
               onMouseEnter={e=>e.currentTarget.style.color=T.text}
               onMouseLeave={e=>{ if(!bellOpen) e.currentTarget.style.color=T.dimText; }}
             >
-              {/* FIX 6: stroke uses currentColor */}
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-              </svg>
-              {unread > 0 && (
-                <span style={{ position:"absolute",top:"2px",right:"2px",width:"8px",height:"8px",borderRadius:"50%",backgroundColor:"#ff4444",display:"block" }} />
-              )}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              {notifications.length > 0 && <span style={{ position:"absolute",top:"2px",right:"2px",width:"8px",height:"8px",borderRadius:"50%",backgroundColor:"#ff4444",display:"block" }} />}
             </button>
-            {bellOpen && <BellMenu notifications={notifications} onClear={() => { onClearNotifs(); setBellOpen(false); }} T={T} />}
+            {bellOpen && <BellMenu notifications={notifications} onClear={()=>{ onClearNotifs(); setBellOpen(false); }} T={T} />}
           </div>
         </div>
       </div>
@@ -252,48 +200,66 @@ function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, streak, notif
   );
 }
 
-// ── FIX 5: Title Area — now uses per-tab state passed as props ────────────────
-
+// ── Title Area ────────────────────────────────────────────────────────────────
 function TitleArea({ onAtomize, title, setTitle, desc, setDesc, category, setCategory, T }) {
+  const [atomizing, setAtomizing] = useState(false);
+
+  const handleAtomize = async () => {
+    if (!title.trim() || atomizing) return;
+    setAtomizing(true);
+    try { await onAtomize(title, category); }
+    finally { setAtomizing(false); }
+  };
+
   return (
     <div style={{ padding:"20px 28px 14px",flexShrink:0,borderBottom:`1px solid ${T.border}` }}>
       <div style={{ display:"flex",alignItems:"center",gap:"10px",marginBottom:"6px" }}>
         <span style={{ backgroundColor:T.panelBg,padding:"3px 14px",borderRadius:"20px",color:T.subText,fontSize:"12px",whiteSpace:"nowrap",flexShrink:0 }}>{category||"tag"}</span>
-        {/* FIX 5: title is per-tab */}
         <input style={{ fontSize:"22px",fontWeight:"bold",color:"#ffbf6e",border:"none",outline:"none",background:"transparent",fontFamily:"inherit",flex:1,minWidth:0 }}
           placeholder="Project title..." value={title} onChange={e=>setTitle(e.target.value)} maxLength={60} />
       </div>
-      {/* FIX 5: desc is per-tab */}
       <input style={{ fontSize:"13px",color:T.subText,border:"none",outline:"none",background:"transparent",fontFamily:"inherit",width:"100%",marginBottom:"10px",display:"block" }}
         placeholder="Project description..." value={desc} onChange={e=>setDesc(e.target.value)} maxLength={200} />
       <div style={{ display:"flex",gap:"8px",marginTop:"4px" }}>
-        {/* FIX 5: category is per-tab */}
         <input style={{ flex:1,padding:"7px 12px",borderRadius:"8px",border:"none",background:T.inputBg,color:T.text,fontFamily:"inherit",fontSize:"13px" }}
           placeholder="Category (e.g. Art, Coding...)" value={category} onChange={e=>setCategory(e.target.value)} />
-        <button style={{ padding:"7px 18px",borderRadius:"8px",border:"none",background:"#ffbf6e",color:"#0E131C",fontWeight:"bold",cursor:"pointer",fontFamily:"inherit",fontSize:"13px" }}
-          onClick={()=>title.trim()&&onAtomize(title,category)}>✨ Atomize!</button>
+        {/* Atomize button stays pressed/dark while running */}
+        <button
+          onClick={handleAtomize}
+          disabled={atomizing || !title.trim()}
+          style={{
+            padding:"7px 18px",borderRadius:"8px",border:"none",fontWeight:"bold",cursor:atomizing||!title.trim()?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"13px",
+            background: atomizing ? "#c48a30" : "#ffbf6e",
+            color: atomizing ? "#7a5010" : "#0E131C",
+            opacity: atomizing ? 0.85 : 1,
+            transition:"all 0.2s",
+            display:"flex",alignItems:"center",gap:"6px",
+          }}
+        >
+          {atomizing ? (
+            <>
+              <span style={{ display:"inline-block",animation:"spin 0.8s linear infinite" }}>⟳</span>
+              Atomizing…
+            </>
+          ) : "✨ Atomize!"}
+        </button>
       </div>
     </div>
   );
 }
 
-// ── FIX 1 + 3 + 4 + 8: File Upload Zone ──────────────────────────────────────
-
-function FileUploadZone({ onAtomizeFile, fileUploaded, T }) {
+// ── File Upload Zone ──────────────────────────────────────────────────────────
+function FileUploadZone({ onAtomizeFile, T }) {
   const fileRef = useRef(null);
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
-  // FIX 8: upload progress state
   const [progress, setProgress] = useState(0);
-
-  // FIX 3: hide upload zone if file already uploaded
-  if (fileUploaded) return null;
+  const [error, setError] = useState("");
 
   const processFile = async (file) => {
     if (!file) return;
-    setLoading(true);
-    setProgress(10);
+    setLoading(true); setError(""); setProgress(10);
     setStatus(`Reading "${file.name}"…`);
     try {
       const base64 = await new Promise((res, rej) => {
@@ -302,18 +268,16 @@ function FileUploadZone({ onAtomizeFile, fileUploaded, T }) {
         r.onerror = () => rej(new Error("Read failed"));
         r.readAsDataURL(file);
       });
-      setProgress(40);
+      setProgress(35);
 
       const isPdf = file.type === "application/pdf";
       const isImage = file.type.startsWith("image/");
 
-      let messageContent;
-      // FIX 4: improved prompt that creates categories + subtasks + quiz/assignment nodes
       const aiPrompt = `You are an expert academic content analyzer and ADHD productivity coach.
 
 Analyze this file thoroughly. Identify ALL topics, chapters, lessons, and any assessments (quizzes, assignments, activities, labs, exams).
 
-Return ONLY valid JSON in this exact format, no markdown, no explanation:
+Return ONLY valid JSON, no markdown fences, no explanation:
 {
   "project_name": "short descriptive title from the content",
   "nodes": [
@@ -323,8 +287,7 @@ Return ONLY valid JSON in this exact format, no markdown, no explanation:
       "is_completed": false,
       "subtasks": [
         { "subtask_id": "1-1", "title": "Review: specific topic or concept", "is_completed": false },
-        { "subtask_id": "1-2", "title": "Quiz: topic name", "is_completed": false },
-        { "subtask_id": "1-3", "title": "Assignment: task description", "is_completed": false }
+        { "subtask_id": "1-2", "title": "Quiz: topic name", "is_completed": false }
       ]
     }
   ]
@@ -334,61 +297,53 @@ RULES:
 - Each node = one major topic/chapter/category
 - Each subtask = one specific review item, concept, or assessment
 - Prefix assessments clearly: "Quiz:", "Assignment:", "Activity:", "Lab:", "Exam:"
-- Keep subtask titles concise and actionable
-- Do NOT group everything into one node — spread across meaningful categories`;
+- Keep subtask titles concise and actionable (start with a verb)
+- Spread content across meaningful categories — do NOT lump everything into one node`;
 
+      let messageContent;
       if (isPdf) {
         messageContent = [
-          { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } },
-          { type: "text", text: aiPrompt }
+          { type:"document", source:{ type:"base64", media_type:"application/pdf", data:base64 } },
+          { type:"text", text:aiPrompt }
         ];
       } else if (isImage) {
         messageContent = [
-          { type: "image", source: { type: "base64", media_type: file.type, data: base64 } },
-          { type: "text", text: aiPrompt }
+          { type:"image", source:{ type:"base64", media_type:file.type, data:base64 } },
+          { type:"text", text:aiPrompt }
         ];
       } else {
         const text = await file.text();
-        messageContent = [
-          { type: "text", text: `${aiPrompt}\n\nFile content:\n${text.slice(0, 8000)}` }
-        ];
+        messageContent = [{ type:"text", text:`${aiPrompt}\n\nFile content:\n${text.slice(0,8000)}` }];
       }
 
-      setProgress(60);
-      setStatus("AI is reading your file…");
+      setProgress(55); setStatus("AI is reading your file…");
 
       const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 2000,
-          messages: [{ role: "user", content: messageContent }],
+          messages: [{ role:"user", content:messageContent }],
         }),
       });
 
-      setProgress(85);
-      setStatus("Building your roadmap…");
+      if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
 
+      setProgress(80); setStatus("Building your roadmap…");
       const data = await res.json();
-      const raw = data.content?.map(b => b.text||"").join("").trim();
+      const raw = data.content?.map(b=>b.text||"").join("").trim();
       const clean = raw.replace(/```json|```/g,"").trim();
       const parsed = JSON.parse(clean);
+      if (!parsed?.nodes) throw new Error("No nodes in response");
 
-      setProgress(100);
-      setStatus("Done! Roadmap created ✨");
+      setProgress(100); setStatus("Done! ✨");
       onAtomizeFile(parsed);
     } catch(err) {
       console.error(err);
-      setProgress(0);
-      setStatus("Failed to analyze file. Try again.");
-      setLoading(false);
+      setError("Failed to analyze file. " + (err.message || "Try again."));
+      setLoading(false); setProgress(0);
     }
-  };
-
-  const onDrop = (e) => {
-    e.preventDefault(); setDragging(false);
-    processFile(e.dataTransfer.files[0]);
   };
 
   return (
@@ -397,36 +352,27 @@ RULES:
         className="upload-zone"
         onDragOver={e=>{e.preventDefault();setDragging(true);}}
         onDragLeave={()=>setDragging(false)}
-        onDrop={onDrop}
-        style={{
-          border:`2px dashed ${dragging?"#ffbf6e":T.border}`,
-          borderRadius:"14px",
-          padding:"20px 16px",
-          textAlign:"center",
-          cursor:loading?"wait":"pointer",
-          background:dragging?T.inputBg:"transparent",
-          transition:"all 0.2s",
-        }}
+        onDrop={e=>{e.preventDefault();setDragging(false);processFile(e.dataTransfer.files[0]);}}
+        style={{ border:`2px dashed ${dragging?"#ffbf6e":T.border}`,borderRadius:"14px",padding:"20px 16px",textAlign:"center",cursor:loading?"wait":"pointer",background:dragging?T.inputBg:"transparent",transition:"all 0.2s" }}
         onClick={()=>!loading&&fileRef.current?.click()}
       >
         <input ref={fileRef} type="file" accept=".pdf,.txt,.md,.doc,.docx,image/*" style={{display:"none"}} onChange={e=>processFile(e.target.files[0])} />
         {loading ? (
           <div style={{ color:"#ffbf6e",fontSize:"13px",fontWeight:"600" }}>
-            {/* FIX 8: progress bar */}
-            <div style={{ width:"100%",backgroundColor:T.trackBg,borderRadius:"20px",height:"6px",overflow:"hidden",marginBottom:"10px" }}>
-              <div style={{ width:`${progress}%`,height:"100%",backgroundColor:"#ffbf6e",borderRadius:"20px",transition:"width 0.4s ease" }}/>
+            <div style={{ width:"100%",backgroundColor:T.trackBg,borderRadius:"20px",height:"6px",overflow:"hidden",marginBottom:"8px" }}>
+              <div style={{ width:`${progress}%`,height:"100%",backgroundColor:"#ffbf6e",borderRadius:"20px",transition:"width 0.5s ease" }}/>
             </div>
             <div style={{ fontSize:"11px",color:T.subText,marginBottom:"4px" }}>{progress}%</div>
             <div>{status}</div>
           </div>
         ) : (
           <>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={T.subText} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{marginBottom:"8px",display:"block",margin:"0 auto 8px"}}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={T.subText} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{display:"block",margin:"0 auto 8px"}}>
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
-            <div style={{ fontSize:"13px",fontWeight:"600",color:T.subText,marginBottom:"4px" }}>Upload a module or file</div>
+            <div style={{ fontSize:"13px",fontWeight:"600",color:T.subText,marginBottom:"3px" }}>Upload a module or file</div>
             <div style={{ fontSize:"11px",color:T.mutedText }}>PDF, TXT, MD, Images — AI will auto-create your roadmap</div>
-            {status && <div style={{ fontSize:"11px",color:"#ffbf6e",marginTop:"6px" }}>{status}</div>}
+            {error && <div style={{ fontSize:"11px",color:"#ff7c7c",marginTop:"6px" }}>{error}</div>}
           </>
         )}
       </div>
@@ -434,8 +380,7 @@ RULES:
   );
 }
 
-// ── Countdown Timer Component ─────────────────────────────────────────────────
-
+// ── Countdown Timer ───────────────────────────────────────────────────────────
 function CountdownTimer({ timer, T }) {
   const { remaining, isRunning, mode, setMode, start, pause, reset, setDuration, formatTime, pct, totalSeconds } = timer;
   const [editing, setEditing] = useState(false);
@@ -444,7 +389,6 @@ function CountdownTimer({ timer, T }) {
 
   const openEdit = () => { if (isRunning) return; setEditVal(formatTime(totalSeconds)); setEditing(true); };
   useEffect(() => { if (editing && inputRef.current) { inputRef.current.focus(); inputRef.current.select(); } }, [editing]);
-
   const applyEdit = () => {
     const parts = editVal.trim().split(":").map(p=>parseInt(p)||0);
     let secs = 0;
@@ -469,9 +413,7 @@ function CountdownTimer({ timer, T }) {
           </button>
         ))}
       </div>
-      <div style={{ fontSize:"10px",color:T.dimText,letterSpacing:"1.5px",textTransform:"uppercase",marginBottom:"10px" }}>
-        {isBreak?"Break Timer":"Flowtime Timer"}
-      </div>
+      <div style={{ fontSize:"10px",color:T.dimText,letterSpacing:"1.5px",textTransform:"uppercase",marginBottom:"10px" }}>{isBreak?"Break Timer":"Flowtime Timer"}</div>
       <div style={{ position:"relative",width:"110px",height:"110px",marginBottom:"14px" }}>
         <svg width="110" height="110" style={{ position:"absolute",top:0,left:0 }}>
           <circle cx="55" cy="55" r={r} fill="none" stroke={T.trackBg} strokeWidth="6" />
@@ -504,13 +446,12 @@ function CountdownTimer({ timer, T }) {
 }
 
 // ── Scoreboard ────────────────────────────────────────────────────────────────
-
 function Scoreboard({ xp, streak, timer, totalNodes, T }) {
   const maxXp=(totalNodes||5)*150, pct=(xp/maxXp)*100;
   const msg=streak>0?`You are on a ${streak}-day streak!`:"No streak yet!";
   const sub=streak>=7?"Unstoppable! 🔥":streak>=3?"Keep it up!":streak>=1?"Good start!":"Complete a task to start!";
   return (
-    <div style={{ flex:1,backgroundColor:T.panelBg,borderRadius:"20px",padding:"20px 16px",display:"flex",flexDirection:"column",alignItems:"center",overflowY:"auto" }}>
+    <div className={T.scrollbar} style={{ flex:1,backgroundColor:T.panelBg,borderRadius:"20px",padding:"20px 16px",display:"flex",flexDirection:"column",alignItems:"center",overflowY:"auto" }}>
       <div style={{ fontSize:"64px",marginBottom:"6px",lineHeight:1 }}>🍪</div>
       <div style={{ fontSize:"15px",fontWeight:"bold",color:T.text,textAlign:"center",marginBottom:"2px" }}>{msg}</div>
       <div style={{ fontSize:"12px",color:T.subText,textAlign:"center",marginBottom:"14px" }}>{sub}</div>
@@ -525,8 +466,7 @@ function Scoreboard({ xp, streak, timer, totalNodes, T }) {
   );
 }
 
-// ── FIX 1: Subtask Row — text right beside circle ─────────────────────────────
-
+// ── Subtask Row ───────────────────────────────────────────────────────────────
 function SubtaskRow({ sub, isNextUp, isLocked, onComplete, T }) {
   const fileInputRef = useRef(null);
   const [preview, setPreview] = useState(null);
@@ -537,90 +477,87 @@ function SubtaskRow({ sub, isNextUp, isLocked, onComplete, T }) {
     if (!file||!file.type.startsWith("image/")) return;
     setUploading(true);
     setPreview(URL.createObjectURL(file));
-    setTimeout(()=>{ setUploading(false); onComplete(); }, 600);
+    setTimeout(()=>{ setUploading(false); onComplete(); }, 500);
   };
 
-  const triggerUpload = () => { if (!isNextUp||sub.is_completed) return; fileInputRef.current?.click(); };
+  const trigger = () => { if (!isNextUp||sub.is_completed) return; fileInputRef.current?.click(); };
 
   return (
-    // FIX 1: removed flex:1 from text span, text sits right beside circle
-    <div style={{ height:"44px",display:"flex",alignItems:"center",gap:"8px",opacity:isLocked?0.35:1,transition:"opacity 0.3s" }}
-      title={isLocked?"Complete the previous task first!":isNextUp?"Upload a screenshot to complete!":""}>
+    <div style={{ height:`${ROW_H}px`,display:"flex",alignItems:"center",gap:"8px",opacity:isLocked?0.35:1,transition:"opacity 0.3s" }}
+      title={isLocked?"Complete previous task first":isNextUp?"Upload proof to complete":""}>
       <input ref={fileInputRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleFileChange} />
-
-      {/* Circle */}
-      <div onClick={triggerUpload} style={{ width:"26px",height:"26px",borderRadius:"50%",border:`2px solid ${sub.is_completed?"#4caf7d":isNextUp?"#ffbf6e":"#3a4060"}`,backgroundColor:sub.is_completed?"#4caf7d":"transparent",flexShrink:0,transition:"all 0.3s",cursor:isNextUp&&!sub.is_completed?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:isNextUp&&!sub.is_completed?"0 0 8px #ffbf6e88":"none" }}>
+      <div onClick={trigger}
+        style={{ width:"26px",height:"26px",borderRadius:"50%",flexShrink:0,transition:"all 0.3s",cursor:isNextUp&&!sub.is_completed?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",
+          border:`2px solid ${sub.is_completed?"#4caf7d":isNextUp?"#ffbf6e":"#3a4060"}`,
+          backgroundColor:sub.is_completed?"#4caf7d":"transparent",
+          boxShadow:isNextUp&&!sub.is_completed?"0 0 8px #ffbf6e88":"none" }}>
         {sub.is_completed&&<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><polyline points="2,6 5,9 10,3"/></svg>}
         {!sub.is_completed&&isNextUp&&<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffbf6e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>}
         {uploading&&<div style={{ width:"8px",height:"8px",borderRadius:"50%",background:"#ffbf6e",animation:"pulse 0.5s ease infinite alternate" }}/>}
       </div>
-
-      {/* FIX 1: text right beside circle, no centering */}
-      <span style={{ fontSize:"13px",color:sub.is_completed?"#4caf7d":isNextUp?T.text:T.dimText,transition:"color 0.3s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>
+      <span style={{ fontSize:"13px",color:sub.is_completed?"#4caf7d":isNextUp?T.text:T.dimText,transition:"color 0.3s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",flex:1 }}>
         {sub.title}
       </span>
-
-      {/* FIX 2: paperclip SVG button instead of "proof" text badge */}
       {isNextUp&&!sub.is_completed&&(
-        <button onClick={triggerUpload} title="Attach proof" style={{ marginLeft:"auto",background:"none",border:"none",cursor:"pointer",padding:"4px",display:"flex",alignItems:"center",flexShrink:0 }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffbf6e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <button onClick={trigger} title="Attach proof screenshot" style={{ marginLeft:"auto",background:"none",border:"none",cursor:"pointer",padding:"4px",display:"flex",alignItems:"center",flexShrink:0 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffbf6e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
           </svg>
         </button>
       )}
-
-      {sub.is_completed&&preview&&(
-        <img src={preview} alt="proof" style={{ width:"20px",height:"20px",borderRadius:"4px",objectFit:"cover",border:"1px solid #4caf7d",flexShrink:0,marginLeft:"auto" }}/>
-      )}
+      {sub.is_completed&&preview&&<img src={preview} alt="proof" style={{ width:"20px",height:"20px",borderRadius:"4px",objectFit:"cover",border:"1px solid #4caf7d",flexShrink:0,marginLeft:"auto" }}/>}
     </div>
   );
 }
 
 // ── Phase Block ───────────────────────────────────────────────────────────────
-
-const ROW_H = 44;
-
 function PhaseBlock({ node, isPhaseActive, onCompleteSubtask, T }) {
-  const isPhaseCompleted = node.is_completed;
   const subtasks = node.subtasks||[];
   const svgH = subtasks.length * ROW_H;
   const doneSubs = subtasks.filter(s=>s.is_completed).length;
-  const SW=3, ANIM=0.25;
+  const lineColor = T.completedLine;
+  const trackColor = T.isDark ? "#2a2f45" : T.border;
 
   return (
     <div style={{ marginBottom:"24px" }}>
       <div style={{ display:"flex",alignItems:"center",gap:"12px",marginBottom:"4px" }}>
-        <div style={{ width:"30px",height:"30px",borderRadius:"50%",border:`2px solid ${isPhaseCompleted?"#4caf7d":isPhaseActive?"#ffbf6e":"#445"}`,backgroundColor:isPhaseCompleted?"#4caf7d":"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"13px",color:"#fff",flexShrink:0,transition:"all 0.3s" }}>
-          {isPhaseCompleted?"✓":""}
+        <div style={{ width:"30px",height:"30px",borderRadius:"50%",flexShrink:0,transition:"all 0.3s",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"13px",
+          border:`2px solid ${node.is_completed?"#4caf7d":isPhaseActive?"#ffbf6e":"#445"}`,
+          backgroundColor:node.is_completed?"#4caf7d":"transparent",color:"#fff" }}>
+          {node.is_completed?"✓":""}
         </div>
-        <div style={{ fontSize:"15px",fontWeight:"600",color:isPhaseCompleted?"#4caf7d":isPhaseActive?"#ffbf6e":T.text,transition:"color 0.3s" }}>
+        <div style={{ fontSize:"15px",fontWeight:"600",transition:"color 0.3s",color:node.is_completed?"#4caf7d":isPhaseActive?"#ffbf6e":T.text }}>
           {node.title}
         </div>
       </div>
       {subtasks.length>0&&(
         <div style={{ display:"flex",alignItems:"flex-start",marginLeft:"14px" }}>
+          {/*
+            FIX: Replace glitchy snake animation with a clean pop-fade.
+            Completed lines render instantly with full opacity.
+            The newest completed one gets a pop-fade keyframe (scale + opacity).
+            No strokeDashoffset at all — that was causing the glitch.
+          */}
           <svg key={`svg-${node.node_id}-${doneSubs}`} width="32" height={svgH} style={{ flexShrink:0 }}>
-            <line x1="2" y1="0" x2="2" y2={svgH} stroke={T.isDark?"#2a2f45":T.border} strokeWidth={SW}/>
+            {/* Track lines */}
+            <line x1="2" y1="0" x2="2" y2={svgH} stroke={trackColor} strokeWidth="3"/>
             {subtasks.map((sub,i)=>{
               const cy=i*ROW_H+ROW_H/2;
-              return <line key={`bgh-${sub.subtask_id}`} x1="2" y1={cy} x2="28" y2={cy} stroke={T.isDark?"#2a2f45":T.border} strokeWidth={SW}/>;
+              return <line key={`trk-${sub.subtask_id}`} x1="2" y1={cy} x2="28" y2={cy} stroke={trackColor} strokeWidth="3"/>;
             })}
+            {/* Completed lines — newest gets pop-fade, rest are instant */}
             {subtasks.map((sub,i)=>{
               if(!sub.is_completed) return null;
-              const prevCy=i===0?0:(i-1)*ROW_H+ROW_H/2;
-              const cy=i*ROW_H+ROW_H/2;
-              const isNewest=i===doneSubs-1;
-              const vertLen=Math.max(1,cy-prevCy);
-              if(!isNewest) return(
-                <g key={`static-${sub.subtask_id}`}>
-                  <line x1="2" y1={prevCy} x2="2" y2={cy} stroke="#ffffff" strokeWidth={SW}/>
-                  <line x1="2" y1={cy} x2="28" y2={cy} stroke="#ffffff" strokeWidth={SW}/>
-                </g>
-              );
-              return(
-                <g key={`anim-${sub.subtask_id}`}>
-                  <line x1="2" y1={prevCy} x2="2" y2={cy} stroke="#ffffff" strokeWidth={SW} strokeDasharray={vertLen} strokeDashoffset={vertLen} style={{ animation:`snakeDraw ${ANIM}s linear 0s forwards` }}/>
-                  <line x1="2" y1={cy} x2="28" y2={cy} stroke="#ffffff" strokeWidth={SW} strokeDasharray={26} strokeDashoffset={26} style={{ animation:`snakeDraw ${ANIM}s linear ${ANIM}s forwards` }}/>
+              const prevCy = i===0 ? 0 : (i-1)*ROW_H+ROW_H/2;
+              const cy = i*ROW_H+ROW_H/2;
+              const isNewest = i===doneSubs-1;
+              const animStyle = isNewest
+                ? { animation:"popFade 0.3s ease-out forwards" }
+                : {};
+              return (
+                <g key={`done-${sub.subtask_id}`} style={animStyle}>
+                  <line x1="2" y1={prevCy} x2="2" y2={cy} stroke={lineColor} strokeWidth="3"/>
+                  <line x1="2" y1={cy} x2="28" y2={cy} stroke={lineColor} strokeWidth="3"/>
                 </g>
               );
             })}
@@ -629,8 +566,7 @@ function PhaseBlock({ node, isPhaseActive, onCompleteSubtask, T }) {
             {subtasks.map((sub,i)=>{
               const prevDone=i===0||subtasks[i-1].is_completed;
               const isNextUp=!sub.is_completed&&prevDone&&isPhaseActive;
-              const isLocked=!sub.is_completed&&!isNextUp;
-              return <SubtaskRow key={sub.subtask_id} sub={sub} isNextUp={isNextUp} isLocked={isLocked} onComplete={()=>onCompleteSubtask(node.node_id,sub.subtask_id)} T={T}/>;
+              return <SubtaskRow key={sub.subtask_id} sub={sub} isNextUp={isNextUp} isLocked={!sub.is_completed&&!isNextUp} onComplete={()=>onCompleteSubtask(node.node_id,sub.subtask_id)} T={T}/>;
             })}
           </div>
         </div>
@@ -640,15 +576,14 @@ function PhaseBlock({ node, isPhaseActive, onCompleteSubtask, T }) {
 }
 
 // ── Roadmap ───────────────────────────────────────────────────────────────────
-
-function Roadmap({ nodes, activeNode, onCompleteSubtask, onAtomizeFile, fileUploaded, T }) {
+function Roadmap({ nodes, activeNode, onCompleteSubtask, onAtomizeFile, hasRoadmap, T }) {
   return (
-    <div style={{ flex:"0 0 58%",backgroundColor:T.panelBg,borderRadius:"20px",padding:"20px",overflowY:"auto",display:"flex",flexDirection:"column" }}>
+    <div className={T.scrollbar} style={{ flex:"0 0 58%",backgroundColor:T.panelBg,borderRadius:"20px",padding:"20px",overflowY:"auto",display:"flex",flexDirection:"column" }}>
       <div style={{ fontSize:"12px",color:T.subText,marginBottom:"16px",fontWeight:"600",letterSpacing:"1px",textTransform:"uppercase" }}>Roadmap</div>
-      {/* FIX 3: pass fileUploaded so zone hides after upload */}
-      <FileUploadZone onAtomizeFile={onAtomizeFile} fileUploaded={fileUploaded} T={T}/>
+      {/* Hide upload zone once a roadmap exists */}
+      {!hasRoadmap && <FileUploadZone onAtomizeFile={onAtomizeFile} T={T}/>}
       {nodes.length===0?(
-        <p style={{ color:T.mutedText,fontSize:"13px" }}>Enter a project above or upload a file to generate your roadmap!</p>
+        <p style={{ color:T.mutedText,fontSize:"13px",margin:0 }}>Enter a project above and hit ✨ Atomize!, or upload a file to generate your roadmap.</p>
       ):(
         nodes.map(node=>(
           <PhaseBlock key={node.node_id} node={node} isPhaseActive={node.node_id===activeNode&&!node.is_completed} onCompleteSubtask={onCompleteSubtask} T={T}/>
@@ -659,7 +594,6 @@ function Roadmap({ nodes, activeNode, onCompleteSubtask, onAtomizeFile, fileUplo
 }
 
 // ── Root ──────────────────────────────────────────────────────────────────────
-
 export default function Breadcrumber() {
   const tabCounter = useRef(3);
   const [tabs, setTabs] = useState([
@@ -682,115 +616,105 @@ export default function Breadcrumber() {
     setTabData(prev => ({ ...prev, [id]: updater(prev[id] || blankProject()) }));
   }, []);
 
-  // FIX 5: per-tab setters for title, desc, category
-  const setTitle = (val) => updateProject(currentTabId, p => ({ ...p, title: val }));
-  const setDesc = (val) => updateProject(currentTabId, p => ({ ...p, desc: val }));
-  const setCategory = (val) => updateProject(currentTabId, p => ({ ...p, category: val }));
+  const setTitle    = v => updateProject(currentTabId, p=>({...p, title:v}));
+  const setDesc     = v => updateProject(currentTabId, p=>({...p, desc:v}));
+  const setCategory = v => updateProject(currentTabId, p=>({...p, category:v}));
 
   const handleCompleteSubtask = (nodeId, subtaskId) => {
     const tabId = currentTabId;
-    updateProject(tabId, (proj) => {
+    updateProject(tabId, proj => {
       const updatedNodes = proj.nodes.map(node => {
         if (node.node_id !== nodeId) return node;
-        const updatedSubtasks = node.subtasks.map(sub =>
-          sub.subtask_id === subtaskId ? { ...sub, is_completed: true } : sub
-        );
-        const allDone = updatedSubtasks.every(s => s.is_completed);
+        const updatedSubtasks = node.subtasks.map(s => s.subtask_id===subtaskId ? {...s,is_completed:true} : s);
+        const allDone = updatedSubtasks.every(s=>s.is_completed);
         if (allDone && !node.is_completed) {
-          setNotifications(prev => [{
-            icon: "🏆",
-            title: `Phase complete: ${node.title}`,
-            body: `You finished all subtasks in "${node.title}"!`,
-          }, ...prev]);
+          setNotifications(prev => [{ icon:"🏆", title:`Phase complete: ${node.title}`, body:`You finished all subtasks in "${node.title}"!` }, ...prev]);
         }
-        return { ...node, subtasks: updatedSubtasks, is_completed: allDone };
+        return { ...node, subtasks:updatedSubtasks, is_completed:allDone };
       });
-      const completedNode = updatedNodes.find(n => n.node_id === nodeId);
-      const parentJustCompleted = completedNode?.is_completed;
+      const cNode = updatedNodes.find(n=>n.node_id===nodeId);
+      const parentDone = cNode?.is_completed;
       return {
-        ...proj,
-        nodes: updatedNodes,
-        activeNode: parentJustCompleted ? proj.activeNode + 1 : proj.activeNode,
-        xp: proj.xp + 50 + (parentJustCompleted ? 100 : 0),
-        completedNodes: parentJustCompleted ? [...proj.completedNodes, nodeId] : proj.completedNodes,
+        ...proj, nodes:updatedNodes,
+        activeNode: parentDone ? proj.activeNode+1 : proj.activeNode,
+        xp: proj.xp + 50 + (parentDone ? 100 : 0),
+        completedNodes: parentDone ? [...proj.completedNodes, nodeId] : proj.completedNodes,
       };
     });
     updateStreak();
   };
 
+  // Atomize via backend (Gemini-powered BreadCrumbAlgo)
   const handleAtomize = async (projectName, cat) => {
-    try {
-      const res = await fetch("http://localhost:8000/atomize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ project_name: projectName, category: cat }),
-      });
-      const data = await res.json();
-      updateProject(currentTabId, (p) => ({ ...p, nodes: data.nodes, activeNode: 0, xp: 0, completedNodes: [] }));
-    } catch(err) { console.error("Atomize failed:", err); }
+    const res = await fetch("http://localhost:8000/projects", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ project_name:projectName, category:cat }),
+    });
+    if (!res.ok) throw new Error(`Backend error: ${res.status}`);
+    const data = await res.json();
+    // Backend returns ProjectRoadmap with .nodes (RoadmapNode[])
+    // Each node has .title, .subtasks[] with .subtask_id and .title
+    updateProject(currentTabId, p=>({...p, nodes:data.nodes, activeNode:0, xp:0, completedNodes:[], hasRoadmap:true}));
   };
 
+  // Atomize via file upload (Claude API direct)
   const handleAtomizeFile = (parsed) => {
     if (!parsed?.nodes) return;
-    // FIX 3 + 5: mark file uploaded, set project name from file
-    updateProject(currentTabId, (p) => ({
-      ...p,
-      nodes: parsed.nodes,
-      activeNode: 0, xp: 0, completedNodes: [],
+    updateProject(currentTabId, p=>({
+      ...p, nodes:parsed.nodes, activeNode:0, xp:0, completedNodes:[],
       title: parsed.project_name || p.title,
-      fileUploaded: true,
+      hasRoadmap:true,
     }));
   };
 
   const handleAddTab = () => {
     tabCounter.current += 1;
     const newId = tabCounter.current;
-    setTabs(prev => [...prev, { id: newId, label: `Project ${newId}` }]);
-    setTabData(prev => ({ ...prev, [newId]: blankProject() }));
+    setTabs(prev=>[...prev,{id:newId,label:`Project ${newId}`}]);
+    setTabData(prev=>({...prev,[newId]:blankProject()}));
     setActiveTab(tabs.length);
   };
 
   const handleDeleteTab = (i) => {
-    if (tabs.length <= 1) return;
-    const deletedId = tabs[i].id;
-    setTabs(prev => prev.filter((_,idx) => idx !== i));
-    setTabData(prev => { const next = {...prev}; delete next[deletedId]; return next; });
-    setActiveTab(prev => { if (prev === i) return Math.max(0, i-1); if (prev > i) return prev-1; return prev; });
+    if (tabs.length<=1) return;
+    const dId = tabs[i].id;
+    setTabs(prev=>prev.filter((_,idx)=>idx!==i));
+    setTabData(prev=>{ const n={...prev}; delete n[dId]; return n; });
+    setActiveTab(prev=>{ if(prev===i) return Math.max(0,i-1); if(prev>i) return prev-1; return prev; });
   };
 
   return (
     <div style={{ backgroundColor:T.bg,padding:"10px",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",height:"100vh",margin:0,boxSizing:"border-box",overflow:"hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        @keyframes snakeDraw { from { stroke-dashoffset: 999; } to { stroke-dashoffset: 0; } }
-        @keyframes pulse { from { opacity:0.6; } to { opacity:1; } }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes spin    { from{transform:rotate(0deg)}  to{transform:rotate(360deg)} }
+        @keyframes pulse   { from{opacity:0.6}             to{opacity:1} }
+        @keyframes popFade { 0%{opacity:0;transform:scale(0.85)} 60%{opacity:1;transform:scale(1.05)} 100%{opacity:1;transform:scale(1)} }
         ::placeholder { color: #889; }
         * { box-sizing: border-box; }
         .upload-zone:hover { border-color: #ffbf6e !important; }
+
+        /* Light mode scrollbars */
+        .scrollbar-light::-webkit-scrollbar        { width:6px; }
+        .scrollbar-light::-webkit-scrollbar-track  { background:#e0e3ef; border-radius:10px; }
+        .scrollbar-light::-webkit-scrollbar-thumb  { background:#b0b8d4; border-radius:10px; }
+        .scrollbar-light::-webkit-scrollbar-thumb:hover { background:#8891b8; }
+
+        /* Dark mode scrollbars */
+        .scrollbar-dark::-webkit-scrollbar        { width:6px; }
+        .scrollbar-dark::-webkit-scrollbar-track  { background:#1a1f35; border-radius:10px; }
+        .scrollbar-dark::-webkit-scrollbar-thumb  { background:#3a4060; border-radius:10px; }
+        .scrollbar-dark::-webkit-scrollbar-thumb:hover { background:#556080; }
       `}</style>
       <div style={{ display:"flex",gap:"16px",padding:"16px",height:"100%",boxSizing:"border-box" }}>
         <Sidebar onTimerToggle={()=>timer.isRunning?timer.pause():timer.start()} isRunning={timer.isRunning} darkMode={darkMode} onToggleDark={()=>setDarkMode(d=>!d)} T={T}/>
         <div style={{ flex:1,display:"flex",flexDirection:"column",minWidth:0 }}>
           <Nav tabs={tabs} activeTab={activeTab} onTabClick={setActiveTab} onAddTab={handleAddTab} onDeleteTab={handleDeleteTab} streak={streak} notifications={notifications} onClearNotifs={()=>setNotifications([])} T={T}/>
           <div style={{ backgroundColor:T.cardBg,flex:1,borderRadius:"0 12px 12px 12px",overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0 }}>
-            {/* FIX 5: pass per-tab title/desc/category */}
-            <TitleArea
-              onAtomize={handleAtomize}
-              title={project.title} setTitle={setTitle}
-              desc={project.desc} setDesc={setDesc}
-              category={project.category} setCategory={setCategory}
-              T={T}
-            />
+            <TitleArea onAtomize={handleAtomize} title={project.title} setTitle={setTitle} desc={project.desc} setDesc={setDesc} category={project.category} setCategory={setCategory} T={T}/>
             <div style={{ display:"flex",gap:"12px",flex:1,padding:"12px 16px 16px",minHeight:0 }}>
-              <Roadmap
-                nodes={project.nodes}
-                activeNode={project.activeNode}
-                onCompleteSubtask={handleCompleteSubtask}
-                onAtomizeFile={handleAtomizeFile}
-                fileUploaded={project.fileUploaded}  // FIX 3
-                T={T}
-              />
+              <Roadmap nodes={project.nodes} activeNode={project.activeNode} onCompleteSubtask={handleCompleteSubtask} onAtomizeFile={handleAtomizeFile} hasRoadmap={project.hasRoadmap} T={T}/>
               <Scoreboard xp={project.xp} streak={streak} timer={timer} totalNodes={project.nodes.length} T={T}/>
             </div>
           </div>
