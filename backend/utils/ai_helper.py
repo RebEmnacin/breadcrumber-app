@@ -12,9 +12,9 @@ load_dotenv()
 class AtomizerAI:
     def __init__(self):
         self.client   = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-        self.model_id = "gemini-2.5-flash"
+        # ── Use flash model for speed — 2.0 is significantly faster than 2.5 ──
+        self.model_id = "gemini-2.0-flash"
 
-    # ── helpers: run blocking SDK calls off the event loop ───────────────────
     async def _generate(self, contents):
         """Wrap the synchronous Gemini SDK call in a thread so FastAPI stays non-blocking."""
         loop = asyncio.get_event_loop()
@@ -28,25 +28,25 @@ class AtomizerAI:
 
     # ── 1. Text-only roadmap from a project name ──────────────────────────────
     async def generate_roadmap(self, project_name: str, category: str) -> list:
-        prompt = f"""You are an ADHD-friendly productivity coach specializing in breaking down creative and technical projects.
+        # Single-call prompt — no scope detection step, much faster
+        prompt = f"""You are an ADHD-friendly productivity coach.
 
 Break the project '{project_name}' ({category}) into 3-5 major phases.
-For each phase, provide 3-5 tiny subtasks that each take no longer than 15 minutes.
+For each phase, provide 3-5 tiny subtasks (max 15 minutes each).
 
-HARD RULES:
-1. Every subtask must start with a strong action verb (e.g. "Sketch", "Write", "Open", "List", "Draft").
-2. Each subtask must be concrete and physical — no vague steps.
-3. The first subtask of the first phase must be brain-dead easy (e.g. "Open a blank document").
-4. NO fluff, NO explanations, NO markdown.
+RULES:
+1. Every subtask starts with a strong action verb.
+2. Each subtask is concrete and physical.
+3. First subtask of first phase must be brain-dead easy.
+4. NO fluff, NO markdown, NO explanation.
 
-Return ONLY a raw JSON array in this exact format:
+Return ONLY a raw JSON array:
 [
   {{
     "category": "Phase Name",
     "subtasks": ["Subtask 1", "Subtask 2", "Subtask 3"]
   }}
-]
-"""
+]"""
         try:
             text = await self._generate(prompt)
             return self._parse_phases(text)
@@ -80,15 +80,14 @@ Return ONLY valid JSON — no markdown fences, no preamble, nothing else:
 
 RULES:
 - Each node = one major topic / chapter / phase
-- Each subtask = one specific review item, concept, or assessment (start with an action verb)
+- Each subtask = one specific review item, concept, or assessment
 - Prefix assessments: "Quiz:", "Assignment:", "Activity:", "Lab:", "Exam:"
-- Spread content meaningfully across nodes — do NOT lump everything into one node
-"""
+- Spread content meaningfully — do NOT lump everything into one node
+- Keep subtask titles short and actionable"""
 
-        TEXT_TYPES = {"text/plain", "text/markdown", "text/csv"}
+        TEXT_TYPES   = {"text/plain", "text/markdown", "text/csv"}
         BINARY_TYPES = {"application/pdf", "image/png", "image/jpeg", "image/gif", "image/webp"}
 
-        # Normalise media type from extension if needed
         fname = (filename or "").lower()
         if media_type not in TEXT_TYPES and media_type not in BINARY_TYPES:
             if fname.endswith((".txt", ".md", ".csv")):
@@ -116,7 +115,6 @@ RULES:
 
         clean = raw.strip().replace("```json", "").replace("```", "").strip()
 
-        # Sometimes Gemini wraps in an extra object — try to find the JSON
         if not clean.startswith("{"):
             start = clean.find("{")
             if start != -1:
@@ -125,10 +123,10 @@ RULES:
         try:
             parsed = json.loads(clean)
         except json.JSONDecodeError as e:
-            raise ValueError(f"Could not parse Gemini JSON response: {e}\nRaw: {raw[:300]}")
+            raise ValueError(f"Could not parse Gemini JSON: {e}\nRaw: {raw[:300]}")
 
         if "nodes" not in parsed:
-            raise ValueError(f"Gemini response missing 'nodes' field. Got keys: {list(parsed.keys())}")
+            raise ValueError(f"Missing 'nodes' in response. Keys: {list(parsed.keys())}")
 
         return parsed
 
