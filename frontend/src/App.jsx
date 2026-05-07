@@ -601,7 +601,10 @@ export default function Breadcrumber() {
   const [tabs, setTabs]   = useState([{id:1,label:"Project 1"},{id:2,label:"Project 2"},{id:3,label:"Project 3"}]);
   const [activeTab, setActiveTab] = useState(0);
   const [tabData, setTabData]     = useState({1:blankProject(),2:blankProject(),3:blankProject()});
-  const [darkMode, setDarkMode]   = useState(true);
+  const [darkMode, setDarkMode] = useState(() => {
+  const saved = localStorage.getItem("darkMode");
+  return saved !== null ? saved === "true" : true;
+});
   const [notifications, setNotifications] = useState([]);
   const [view, setView]           = useState("roadmap");
 
@@ -727,7 +730,12 @@ export default function Breadcrumber() {
       {timer.isDone && <TimerBreakPopup mode={timer.mode} onOkay={timer.dismissDone} T={T} />}
 
       <div style={{ display:"flex",gap:"16px",padding:"16px",height:"100%",boxSizing:"border-box" }}>
-        <Sidebar onTimerToggle={()=>timer.isRunning?timer.pause():timer.start()} isRunning={timer.isRunning} darkMode={darkMode} onToggleDark={()=>setDarkMode(d=>!d)} view={view} onSetView={setView} T={T}/>
+        <Sidebar onTimerToggle={()=>timer.isRunning?timer.pause():timer.start()} isRunning={timer.isRunning} darkMode={darkMode} onToggleDark={() => {
+  setDarkMode(d => {
+    localStorage.setItem("darkMode", String(!d));
+    return !d;
+  });
+}} view={view} onSetView={setView} T={T}/>
         <div style={{ flex:1,display:"flex",flexDirection:"column",minWidth:0 }}>
           <Nav tabs={tabs} activeTab={activeTab} onTabClick={setActiveTab} onAddTab={handleAddTab} onDeleteTab={handleDeleteTab} streak={streak} notifications={notifications} onClearNotifs={()=>setNotifications([])} T={T}/>
           <div style={{ backgroundColor:T.cardBg,flex:1,borderRadius:"0 12px 12px 12px",overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0 }}>
