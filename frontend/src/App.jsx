@@ -492,7 +492,7 @@ function TitleArea({ onAtomize, title, setTitle, desc, setDesc, category, setCat
           placeholder="Category (e.g. Art, Coding...)" value={category} onChange={e=>setCategory(e.target.value)} />
         <button onClick={handleAtomize} disabled={atomizing||!title.trim()}
           style={{ padding:"7px 18px",borderRadius:"8px",border:"none",fontWeight:"bold",cursor:atomizing||!title.trim()?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"13px",background:atomizing?"#c48a30":"#ffbf6e",color:atomizing?"#7a5010":"#0E131C",opacity:atomizing?0.85:1,transition:"all 0.2s",display:"flex",alignItems:"center",gap:"6px" }}>
-          {atomizing?<><span style={{display:"inline-block",animation:"spin 0.8s linear infinite"}}>⟳</span>Atomizing…</>:"✨ Atomize!"}
+          {atomizing?<><span style={{display:"inline-block",animation:"spin 0.8s linear infinite"}}>⟳</span>Crumbling…</>:"🍪 Crumble"}
         </button>
       </div>
     </div>
