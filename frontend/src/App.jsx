@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useStreak } from "./hooks/useStreak";
 import { atomizeProject, analyzeFile } from "./hooks/useApi";
+import frame1 from "./assets/gif1-frame1.png";
+import frame2 from "./assets/gif1-frame2.png";
+import icon from "./assets/favicon.png";
+import bufferload from "./assets/buffer-loading.png"
 
 const blankProject = () => ({
   nodes: [], activeNode: 0, xp: 0, completedNodes: [],
@@ -90,7 +94,7 @@ function StreakIcon({ size = 32 }) {
 
   useEffect(() => {
     if (!frames) return;
-    const id = setInterval(() => setFrame(f => (f + 1) % 2), 125); // ~8fps
+    const id = setInterval(() => setFrame(f => (f + 1) % 2), 500); // ~8fps
     return () => clearInterval(id);
   }, [frames]);
 
@@ -339,13 +343,6 @@ function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, streak, notif
   const [bellOpen, setBellOpen]           = useState(false);
   const bellRef = useRef(null);
 
-  // Animated streak icon — 2 frames loop
-  const [streakFrame, setStreakFrame] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setStreakFrame(f => (f + 1) % 2), 125);
-    return () => clearInterval(id);
-  }, []);
-
   useEffect(() => {
     if (!bellOpen) return;
     const h = (e) => { if (bellRef.current && !bellRef.current.contains(e.target)) setBellOpen(false); };
@@ -354,87 +351,122 @@ function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, streak, notif
   }, [bellOpen]);
 
   return (
-    <>
-      {pendingDelete !== null && <DeleteConfirmModal projectLabel={tabs[pendingDelete]?.label} onConfirm={() => { onDeleteTab(pendingDelete); setPendingDelete(null); }} onCancel={() => setPendingDelete(null)} T={T} />}
-      <div style={{ display:"flex",alignItems:"flex-end",backgroundColor:T.bg,flexShrink:0 }}>
-        {tabs.map((tab,i) => (
-          <div key={tab.id} style={{ position:"relative",display:"inline-flex",marginRight:"4px" }}>
-            <button style={{ backgroundColor:activeTab===i?T.cardBg:T.panelBg,padding:"10px 36px 10px 16px",borderRadius:"12px 12px 0 0",color:activeTab===i?T.text:T.dimText,cursor:"pointer",fontSize:"14px",fontWeight:activeTab===i?"600":"400",userSelect:"none",border:"none",fontFamily:"inherit",lineHeight:1.4,maxWidth:"160px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}
-              onClick={() => onTabClick(i)}>{tab.label}</button>
+    <div style={{ position: "relative", display: "flex", flexDirection: "column", width: "100%" }}>
+      {pendingDelete !== null && (
+        <DeleteConfirmModal 
+          projectLabel={tabs[pendingDelete]?.label} 
+          onConfirm={() => { onDeleteTab(pendingDelete); setPendingDelete(null); }} 
+          onCancel={() => setPendingDelete(null)} 
+          T={T} 
+        />
+      )}
+
+      {/* 1. TOP UTILITY GROUP (Right Edge) */}
+      <div style={{ 
+        position: "absolute",
+        top: "4px", // Lowered slightly
+        right: "0px",
+        display: "flex", 
+        alignItems: "center", 
+        gap: "10px",
+        zIndex: 10
+      }}>
+        {/* Streak */}
+        <div style={{ display:"flex", alignItems:"center", gap:"6px", backgroundColor:T.panelBg, borderRadius:"8px", padding:"3px 10px" }}>
+          <img src={icon} alt="streak" style={{ width: "18px", height: "18px", objectFit: "contain" }} />
+          <span style={{ fontSize:"16px", fontWeight:"bold", color:T.text, lineHeight:1 }}>{streak}</span>
+        </div>
+
+        {/* Notifications */}
+        <div ref={bellRef} style={{ position:"relative" }}>
+          <button onClick={() => setBellOpen(o => !o)} style={{ background:"none", border:"none", color:bellOpen?T.text:T.dimText, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", width:"28px", height:"28px" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            {notifications.length > 0 && (
+              <span style={{ position:"absolute", top:"4px", right:"4px", width:"7px", height:"7px", borderRadius:"50%", backgroundColor:"#ff4444", border:`1.5px solid ${T.bg}` }} />
+            )}
+          </button>
+          {bellOpen && <BellMenu notifications={notifications} onClear={() => { onClearNotifs(); setBellOpen(false); }} T={T} />}
+        </div>
+      </div>
+
+      {/* 2. TABS ROW + PLUS BUTTON */}
+      <div style={{ display: "flex", alignItems: "flex-end", overflowX: "auto", scrollbarWidth: "none", marginTop: "8px" }}>
+        {tabs.map((tab, i) => (
+          <div key={tab.id} style={{ position: "relative", display: "inline-flex", marginRight: "2px" }}>
+            <button 
+              style={{ 
+                backgroundColor: activeTab === i ? T.cardBg : T.panelBg, 
+                padding: "8px 32px 8px 14px", 
+                borderRadius: "10px 10px 0 0", 
+                color: activeTab === i ? T.text : T.dimText, 
+                cursor: "pointer", 
+                fontSize: "13px", 
+                fontWeight: activeTab === i ? "600" : "400", 
+                border: "none", 
+                fontFamily: "inherit", 
+                maxWidth: "140px"
+              }} 
+              onClick={() => onTabClick(i)}
+            >
+              {tab.label}
+            </button>
             {tabs.length > 1 && (
-              <button onClick={e=>{e.stopPropagation();setPendingDelete(i);}} title="Delete project"
-                style={{ position:"absolute",top:"5px",right:"5px",background:"none",border:"none",color:activeTab===i?"#ff7c7c":T.mutedText,cursor:"pointer",fontSize:"11px",lineHeight:1,padding:"0 2px",fontFamily:"inherit",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",width:"14px",height:"14px" }}
-                onMouseEnter={e=>e.currentTarget.style.color="#ff4444"}
-                onMouseLeave={e=>e.currentTarget.style.color=activeTab===i?"#ff7c7c":T.mutedText}>×</button>
+              <button 
+                onClick={e => { e.stopPropagation(); setPendingDelete(i); }} 
+                style={{ position: "absolute", top: "4px", right: "6px", background: "none", border: "none", color: T.mutedText, cursor: "pointer", fontSize: "12px" }}
+              >
+                ×
+              </button>
             )}
           </div>
         ))}
-        <button style={{ backgroundColor:"#ffbf6e",border:"none",borderRadius:"50%",width:"28px",height:"28px",color:"#0E131C",fontSize:"18px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",marginLeft:"8px",marginBottom:"6px",fontWeight:"bold",fontFamily:"inherit",flexShrink:0 }} onClick={onAddTab}>+</button>
-        <div style={{ marginLeft:"auto",display:"flex",alignItems:"center",gap:"10px",paddingBottom:"6px",paddingRight:"4px",flexShrink:0 }}>
-          {/* Streak badge with animated cat/cookie icon */}
-          <div style={{ display:"flex",alignItems:"center",gap:"6px",backgroundColor:T.panelBg,borderRadius:"10px",padding:"4px 12px 4px 8px" }}>
-            <StreakAnimatedBadge frame={streakFrame} size={28} />
-            <span style={{ fontSize:"18px",fontWeight:"bold",color:T.text,lineHeight:1 }}>{streak}</span>
-          </div>
-          <div ref={bellRef} style={{ position:"relative" }}>
-            <button onClick={()=>setBellOpen(o=>!o)}
-              style={{ background:"none",border:"none",color:bellOpen?T.text:T.dimText,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",width:"32px",height:"32px",borderRadius:"8px",transition:"color 0.2s",padding:0,position:"relative" }}
-              onMouseEnter={e=>e.currentTarget.style.color=T.text}
-              onMouseLeave={e=>{ if(!bellOpen) e.currentTarget.style.color=T.dimText; }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-              {notifications.length > 0 && <span style={{ position:"absolute",top:"2px",right:"2px",width:"8px",height:"8px",borderRadius:"50%",backgroundColor:"#ff4444",display:"block" }}/>}
-            </button>
-            {bellOpen && <BellMenu notifications={notifications} onClear={()=>{ onClearNotifs(); setBellOpen(false); }} T={T} />}
-          </div>
-        </div>
+
+        {/* PLUS BUTTON: Back next to the tabs */}
+        <button 
+          onClick={onAddTab} 
+          style={{ 
+            backgroundColor: "#ffbf6e", 
+            border: "none", 
+            borderRadius: "50%", 
+            width: "24px", 
+            height: "24px", 
+            color: "#0E131C", 
+            fontSize: "16px", 
+            cursor: "pointer", 
+            display: "flex", 
+            alignItems: "center", 
+            justifyContent: "center", 
+            fontWeight: "bold",
+            marginLeft: "8px",
+            marginBottom: "6px", // Keeps it aligned with tab text height
+            flexShrink: 0
+          }}
+        >
+          +
+        </button>
       </div>
-    </>
+    </div>
   );
 }
 
-// ── Animated streak badge — swaps between 2 cat frames ────────────────────────
-// HOW TO ADD YOUR FRAMES:
-// 1. Put gif1-frame1.png and gif1-frame2.png into frontend/src/assets/
-// 2. At the top of this file, add:
-//      import streakFrame1 from "./assets/gif1-frame1.png";
-//      import streakFrame2 from "./assets/gif1-frame2.png";
-// 3. Replace the <StreakAnimatedBadge> component body to use those imports:
-//      const FRAMES = [streakFrame1, streakFrame2];
-//      function StreakAnimatedBadge({ frame, size }) {
-//        return <img src={FRAMES[frame]} style={{ width:size, height:size, objectFit:"contain" }} alt="streak" />;
-//      }
 function StreakAnimatedBadge({ frame, size = 28 }) {
-  // Placeholder SVG cat cookie until PNGs are added
-  // Frame 0 = mouth open (eating), Frame 1 = eyes closed (chomping)
+  const frames = [frame1, frame2];
+
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" style={{ flexShrink:0 }}>
-      {/* Cookie body */}
-      <circle cx="16" cy="16" r="13" fill="#c8832a"/>
-      <circle cx="16" cy="16" r="13" fill="none" stroke="#a06020" strokeWidth="1.5"/>
-      {/* Choc chips */}
-      <circle cx="11" cy="12" r="2" fill="#6b3a0f"/>
-      <circle cx="18" cy="10" r="1.5" fill="#6b3a0f"/>
-      <circle cx="14" cy="19" r="2" fill="#6b3a0f"/>
-      <circle cx="21" cy="18" r="1.5" fill="#6b3a0f"/>
-      <circle cx="10" cy="20" r="1" fill="#6b3a0f"/>
-      {/* Cat ears on top */}
-      <polygon points="9,5 6,0 12,3" fill="#c8832a" stroke="#a06020" strokeWidth="1"/>
-      <polygon points="23,5 20,3 26,0" fill="#c8832a" stroke="#a06020" strokeWidth="1"/>
-      {frame === 0
-        ? /* Frame 0: eyes open, mouth open */
-          <>
-            <circle cx="13" cy="14" r="1.5" fill="#3b1a00"/>
-            <circle cx="19" cy="14" r="1.5" fill="#3b1a00"/>
-            <path d="M14 19 Q16 22 18 19" stroke="#3b1a00" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
-          </>
-        : /* Frame 1: eyes closed (> <), biting */
-          <>
-            <path d="M11.5 13.5 L14.5 15" stroke="#3b1a00" strokeWidth="1.5" strokeLinecap="round"/>
-            <path d="M17.5 15 L20.5 13.5" stroke="#3b1a00" strokeWidth="1.5" strokeLinecap="round"/>
-            <path d="M14 19 L18 19" stroke="#3b1a00" strokeWidth="1.2" strokeLinecap="round"/>
-          </>
-      }
-    </svg>
+    <img 
+      src={frames[frame]} 
+      alt="streak" 
+      style={{ 
+        width: size, 
+        height: size, 
+        objectFit: "contain", 
+        imageRendering: "pixelated", 
+        flexShrink: 0 
+      }} 
+    />
   );
 }
 
@@ -490,31 +522,56 @@ function FileUploadZone({ onAtomizeFile, T }) {
   };
 
   return (
-    <div style={{ marginBottom:"16px" }}>
+    <div style={{ marginBottom: "16px" }}>
       <div className="upload-zone"
-        onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)}
-        onDrop={e=>{e.preventDefault();setDragging(false);processFile(e.dataTransfer.files[0]);}}
-        style={{ border:`2px dashed ${dragging?"#ffbf6e":T.border}`,borderRadius:"14px",padding:"20px 16px",textAlign:"center",cursor:loading?"wait":"pointer",background:dragging?T.inputBg:"transparent",transition:"all 0.2s" }}
-        onClick={()=>!loading&&fileRef.current?.click()}>
-        <input ref={fileRef} type="file" accept=".pdf,.txt,.md,.doc,.docx,image/*" style={{display:"none"}} onChange={e=>processFile(e.target.files[0])} />
-        {loading ? (
-          <div style={{ color:"#ffbf6e",fontSize:"13px",fontWeight:"600" }}>
-            <div style={{ width:"100%",backgroundColor:T.trackBg,borderRadius:"20px",height:"6px",overflow:"hidden",marginBottom:"8px" }}>
-              <div style={{ width:`${progress}%`,height:"100%",backgroundColor:"#ffbf6e",borderRadius:"20px",transition:"width 0.6s ease" }}/>
+        onDragOver={e => { e.preventDefault(); setDragging(true); }} 
+        onDragLeave={() => setDragging(false)}
+        onDrop={e => { e.preventDefault(); setDragging(false); processFile(e.dataTransfer.files[0]); }}
+        style={{ 
+          border: `2px dashed ${dragging ? "#ffbf6e" : T.border}`, 
+          borderRadius: "14px", 
+          padding: "20px 16px", 
+          textAlign: "center", 
+          cursor: "pointer", 
+          background: dragging ? `${T.panelBg}88` : "transparent", 
+          transition: "all 0.2s" 
+        }}
+        onClick={() => fileRef.current?.click()}
+      >
+        <input type="file" ref={fileRef} hidden onChange={e => processFile(e.target.files[0])} accept=".pdf,.txt,.docx,.png,.jpg,.jpeg" />
+        
+        {/* REPLACED SVG WITH YOUR IMPORTED IMAGE */}
+        <div style={{ marginBottom: "10px", display: "flex", justifyContent: "center" }}>
+          <img 
+            src={bufferload} 
+            alt="Upload Icon" 
+            style={{ 
+              width: "100px", 
+              height: "100px", 
+              objectFit: "contain",
+              opacity: dragging ? 1 : 0.7,
+              // Optional: Add a spinning animation if you want it to look "loading" while dragging
+              animation: dragging ? "spin 2s linear infinite" : "none"
+            }} 
+          />
+        </div>
+
+        <div style={{ fontSize: "14px", fontWeight: "600", color: T.text }}>
+          {loading ? "Analyzing..." : "Drop a file or click to upload"}
+        </div>
+        <div style={{ fontSize: "11px", color: T.mutedText, marginTop: "4px" }}>
+          PDF, TXT, Images or Docs supported
+        </div>
+        
+        {loading && (
+          <div style={{ marginTop: "12px" }}>
+            <div style={{ height: "4px", background: T.trackBg, borderRadius: "2px", overflow: "hidden", marginBottom: "6px" }}>
+              <div style={{ width: `${progress}%`, height: "100%", background: "#ffbf6e", transition: "width 0.3s" }} />
             </div>
-            <div style={{ fontSize:"11px",color:T.subText,marginBottom:"4px" }}>{Math.round(progress)}%</div>
-            <div>{status}</div>
+            <div style={{ fontSize: "10px", color: "#ffbf6e", fontWeight: "bold" }}>{status}</div>
           </div>
-        ) : (
-          <>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={T.subText} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{display:"block",margin:"0 auto 8px"}}>
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-            </svg>
-            <div style={{ fontSize:"13px",fontWeight:"600",color:T.subText,marginBottom:"3px" }}>Upload a module or file</div>
-            <div style={{ fontSize:"11px",color:T.mutedText }}>PDF, TXT, MD, Images — Gemini AI will auto-create your roadmap</div>
-            {error && <div style={{ fontSize:"11px",color:"#ff7c7c",marginTop:"6px" }}>{error}</div>}
-          </>
         )}
+        {error && <div style={{ fontSize: "11px", color: "#ff4444", marginTop: "8px", fontWeight: "600" }}>{error}</div>}
       </div>
     </div>
   );
@@ -618,7 +675,7 @@ function Scoreboard({ xp, streak, timer, totalNodes, T }) {
 
   const [frame, setFrame] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => setFrame(f => (f + 1) % 2), 125);
+    const id = setInterval(() => setFrame(f => (f + 1) % 2), 500);
     return () => clearInterval(id);
   }, []);
 
@@ -626,7 +683,7 @@ function Scoreboard({ xp, streak, timer, totalNodes, T }) {
     <div className={T.scrollbar} style={{ flex:1,backgroundColor:T.panelBg,borderRadius:"20px",padding:"20px 16px",display:"flex",flexDirection:"column",alignItems:"center",overflowY:"auto" }}>
       {/* Animated 2-frame streak icon */}
       <div style={{ marginBottom:"6px",lineHeight:1 }}>
-        <StreakAnimatedBadge frame={frame} size={64} />
+        <StreakAnimatedBadge frame={frame} size={200} />
       </div>
       <div style={{ fontSize:"15px",fontWeight:"bold",color:T.text,textAlign:"center",marginBottom:"2px" }}>{msg}</div>
       <div style={{ fontSize:"12px",color:T.subText,textAlign:"center",marginBottom:"14px" }}>{sub}</div>
