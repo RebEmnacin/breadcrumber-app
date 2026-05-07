@@ -65,13 +65,54 @@ const darkTheme = {
   mutedText:"#556", inputBg:"#1a1f35", trackBg:"#2a2f45",
   completedLine:"#ffffff", isDark:true, scrollbar:"scrollbar-dark",
 };
+// ── Light theme: coffee/bread/khaki palette ───────────────────────────────────
 const lightTheme = {
-  bg:"#e8eaf0", panelBg:"#f0f2f7", cardBg:"#ffffff",
-  border:"#d0d4e4", text:"#1a1f35", subText:"#556", dimText:"#667",
-  mutedText:"#99a", inputBg:"#e0e3ef", trackBg:"#d4d8eb",
-  completedLine:"#4caf7d", isDark:false, scrollbar:"scrollbar-light",
+  bg:"#e8d9c4", panelBg:"#f2e8d9", cardBg:"#fdf6ec",
+  border:"#d4b896", text:"#3b2a1a", subText:"#7a5c3e", dimText:"#9e7a56",
+  mutedText:"#b89470", inputBg:"#e8d4bb", trackBg:"#d4b896",
+  completedLine:"#7a5c3e", isDark:false, scrollbar:"scrollbar-light",
 };
 const ROW_H = 44;
+
+// ── Animated cookie/cat GIF streaks icon ──────────────────────────────────────
+// Uses two frames that swap at ~8fps to simulate a looping GIF animation.
+// To use your own frames: drop gif1-frame1.png and gif1-frame2.png into
+//   frontend/src/assets/
+// Then update the two import lines below:
+import streakFrame1 from "./assets/gif1-frame1.png";
+import streakFrame2 from "./assets/gif1-frame2.png";
+// The component below handles the 2-frame loop automatically.
+function StreakIcon({ size = 32 }) {
+  // Inline SVG placeholder — swapped out once user adds their PNG frames.
+  // If you add the images, import them at the top of this file and pass them as props.
+  const [frame, setFrame] = useState(0);
+  const frames = StreakIcon._frames || null;
+
+  useEffect(() => {
+    if (!frames) return;
+    const id = setInterval(() => setFrame(f => (f + 1) % 2), 125); // ~8fps
+    return () => clearInterval(id);
+  }, [frames]);
+
+  if (frames) {
+    return (
+      <img
+        src={frames[frame]}
+        alt="streak"
+        style={{ width: size, height: size, objectFit: "contain", imageRendering: "pixelated" }}
+      />
+    );
+  }
+
+  // Fallback: cookie SVG until user adds frames
+  return (
+ StreakIcon._frames = [f1, f2]);
+  
+}
+// Call this from your build setup to inject the image URLs, e.g.:
+// import f1 from "./assets/gif1-frame1.png";
+// import f2 from "./assets/gif1-frame2.png";
+// StreakIcon._frames = [f1, f2];
 
 // ── Timer-done popup ──────────────────────────────────────────────────────────
 function TimerBreakPopup({ mode, onOkay, T }) {
@@ -135,15 +176,38 @@ function BellMenu({ notifications, onClear, T }) {
   );
 }
 
-// ── Album View — Google Drive–style gallery ───────────────────────────────────
-function AlbumView({ proofAlbum, T }) {
-  const [selected, setSelected] = useState(null); // { dataUrl, subtaskTitle, taskTitle, uploadedAt }
-  const entries = Object.entries(proofAlbum).filter(([,proofs]) => proofs.length > 0);
+// ── Album View — Google Drive-style folder gallery ────────────────────────────
+function AlbumView({ proofAlbum, nodes, T }) {
+  const [selected, setSelected] = useState(null);
+  const [openFolders, setOpenFolders] = useState({});
+
+  const toggleFolder = (id) => setOpenFolders(prev => ({ ...prev, [id]: !prev[id] }));
+
+  // Group proofAlbum by task (node), preserving roadmap category order
+  // Each "folder" = one node/phase, contains subtask proofs within it
+  const folders = (nodes || []).map(node => {
+    const subtaskProofs = (node.subtasks || []).flatMap(sub => {
+      const proofs = proofAlbum[sub.subtask_id] || [];
+      return proofs.map(p => ({ ...p, subtaskTitle: sub.title }));
+    });
+    return { nodeId: node.node_id, title: node.title, proofs: subtaskProofs };
+  }).filter(f => f.proofs.length > 0);
+
+  // Also include any proofAlbum entries not matched to nodes (fallback)
+  const matchedSubtaskIds = new Set(
+    (nodes || []).flatMap(n => (n.subtasks || []).map(s => s.subtask_id))
+  );
+  const unmatchedEntries = Object.entries(proofAlbum).filter(([id]) => !matchedSubtaskIds.has(id));
+  if (unmatchedEntries.length > 0) {
+    const unmatchedProofs = unmatchedEntries.flatMap(([, proofs]) => proofs);
+    if (unmatchedProofs.length > 0) folders.push({ nodeId: "__other__", title: "Other", proofs: unmatchedProofs });
+  }
+
   const totalPhotos = Object.values(proofAlbum).flat().length;
 
   return (
     <div style={{ height:"100%",display:"flex",flexDirection:"column",overflow:"hidden" }}>
-      {/* Header bar */}
+      {/* Header */}
       <div style={{ padding:"18px 20px 12px",borderBottom:`1px solid ${T.border}`,flexShrink:0 }}>
         <div style={{ display:"flex",alignItems:"center",gap:"10px" }}>
           <div style={{ width:"32px",height:"32px",borderRadius:"8px",background:"linear-gradient(135deg,#ffbf6e,#ff8c42)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
@@ -151,53 +215,71 @@ function AlbumView({ proofAlbum, T }) {
           </div>
           <div>
             <div style={{ fontSize:"15px",fontWeight:"700",color:T.text,lineHeight:1 }}>Proof Album</div>
-            <div style={{ fontSize:"11px",color:T.mutedText,marginTop:"2px" }}>{totalPhotos} screenshot{totalPhotos!==1?"s":""} · {entries.length} task{entries.length!==1?"s":""}</div>
+            <div style={{ fontSize:"11px",color:T.mutedText,marginTop:"2px" }}>{totalPhotos} screenshot{totalPhotos!==1?"s":""} · {folders.length} folder{folders.length!==1?"s":""}</div>
           </div>
         </div>
       </div>
 
-      {/* Gallery body */}
+      {/* Folder grid body */}
       <div className={T.scrollbar} style={{ flex:1,overflowY:"auto",padding:"16px 20px" }}>
         {totalPhotos === 0 ? (
           <div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100%",gap:"12px",paddingTop:"40px" }}>
             <div style={{ width:"64px",height:"64px",borderRadius:"16px",background:T.inputBg,display:"flex",alignItems:"center",justifyContent:"center" }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={T.dimText} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={T.dimText} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
             </div>
             <div style={{ fontSize:"14px",fontWeight:"600",color:T.subText }}>No screenshots yet</div>
             <div style={{ fontSize:"12px",color:T.mutedText,textAlign:"center",maxWidth:"200px",lineHeight:1.5 }}>Complete subtasks and attach proof images to build your album.</div>
           </div>
         ) : (
-          entries.map(([subtaskId, proofs]) => (
-            <div key={subtaskId} style={{ marginBottom:"24px" }}>
-              {/* Section label */}
-              <div style={{ display:"flex",alignItems:"center",gap:"8px",marginBottom:"10px" }}>
-                <div style={{ width:"6px",height:"6px",borderRadius:"50%",background:"#4caf7d",flexShrink:0 }}/>
-                <span style={{ fontSize:"11px",fontWeight:"700",color:T.dimText,textTransform:"uppercase",letterSpacing:"0.8px" }}>
-                  {proofs[0].taskTitle}
-                </span>
-                <span style={{ fontSize:"11px",color:T.mutedText }}>›</span>
-                <span style={{ fontSize:"11px",color:T.subText,fontWeight:"500" }}>{proofs[0].subtaskTitle}</span>
-                <span style={{ marginLeft:"auto",fontSize:"10px",color:T.mutedText,background:T.inputBg,padding:"2px 8px",borderRadius:"20px" }}>{proofs.length} file{proofs.length!==1?"s":""}</span>
-              </div>
-              {/* Photo grid */}
-              <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))",gap:"8px" }}>
-                {proofs.map((p,i) => (
-                  <div key={i} onClick={() => setSelected(p)}
-                    style={{ borderRadius:"10px",overflow:"hidden",cursor:"pointer",border:`2px solid ${T.border}`,transition:"transform 0.15s, border-color 0.15s",position:"relative",aspectRatio:"4/3",background:T.inputBg }}
-                    onMouseEnter={e=>{ e.currentTarget.style.transform="scale(1.03)"; e.currentTarget.style.borderColor="#ffbf6e"; }}
-                    onMouseLeave={e=>{ e.currentTarget.style.transform="scale(1)"; e.currentTarget.style.borderColor=T.border; }}>
-                    <img src={p.dataUrl} alt="proof" style={{ width:"100%",height:"100%",objectFit:"cover",display:"block" }}/>
-                    {/* Hover overlay */}
-                    <div className="photo-overlay" style={{ position:"absolute",inset:0,background:"rgba(0,0,0,0)",display:"flex",alignItems:"flex-end",transition:"background 0.15s" }}>
-                      <div style={{ width:"100%",padding:"6px 8px",background:"linear-gradient(transparent,rgba(0,0,0,0.7))",fontSize:"9px",color:"#fff",opacity:0,transition:"opacity 0.15s" }} className="photo-meta">
-                        {p.uploadedAt}
+          <>
+            {/* 4-per-row folder grid */}
+            <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"12px",marginBottom:"20px" }}>
+              {folders.map(folder => (
+                <button key={folder.nodeId} onClick={() => toggleFolder(folder.nodeId)}
+                  style={{ background:openFolders[folder.nodeId]?"linear-gradient(135deg,#ffbf6e22,#ff8c4211)":T.inputBg,border:`1.5px solid ${openFolders[folder.nodeId]?"#ffbf6e":T.border}`,borderRadius:"14px",padding:"12px 10px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"6px",transition:"all 0.2s",fontFamily:"inherit" }}
+                  onMouseEnter={e=>{ e.currentTarget.style.borderColor="#ffbf6e"; e.currentTarget.style.transform="translateY(-2px)"; }}
+                  onMouseLeave={e=>{ e.currentTarget.style.borderColor=openFolders[folder.nodeId]?"#ffbf6e":T.border; e.currentTarget.style.transform="translateY(0)"; }}>
+                  {/* Folder icon */}
+                  <div style={{ position:"relative" }}>
+                    <svg width="38" height="32" viewBox="0 0 38 32" fill="none">
+                      <path d="M2 8 Q2 6 4 6 L14 6 L16 4 L34 4 Q36 4 36 6 L36 28 Q36 30 34 30 L4 30 Q2 30 2 28 Z" fill={openFolders[folder.nodeId]?"#ffbf6e":"#c8a060"} opacity="0.85"/>
+                      <path d="M2 10 L36 10 L36 28 Q36 30 34 30 L4 30 Q2 30 2 28 Z" fill={openFolders[folder.nodeId]?"#ffd090":"#dbb070"}/>
+                    </svg>
+                    <span style={{ position:"absolute",bottom:"2px",right:"-2px",fontSize:"9px",fontWeight:"800",background:"#ffbf6e",color:"#3b2000",borderRadius:"8px",padding:"1px 5px",lineHeight:1.4 }}>{folder.proofs.length}</span>
+                  </div>
+                  <span style={{ fontSize:"10px",fontWeight:"600",color:T.text,textAlign:"center",lineHeight:1.3,width:"100%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{folder.title}</span>
+                  <span style={{ fontSize:"9px",color:T.mutedText }}>{openFolders[folder.nodeId]?"▲ close":"▼ open"}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Expanded folder contents */}
+            {folders.filter(f => openFolders[f.nodeId]).map(folder => (
+              <div key={`open-${folder.nodeId}`} style={{ marginBottom:"20px",background:T.inputBg,borderRadius:"16px",padding:"14px 16px",border:`1px solid ${T.border}` }}>
+                <div style={{ display:"flex",alignItems:"center",gap:"8px",marginBottom:"12px" }}>
+                  <svg width="18" height="16" viewBox="0 0 18 16" fill="none">
+                    <path d="M1 4 Q1 3 2 3 L7 3 L8 2 L16 2 Q17 2 17 3 L17 13 Q17 14 16 14 L2 14 Q1 14 1 13 Z" fill="#ffbf6e" opacity="0.9"/>
+                    <path d="M1 5 L17 5 L17 13 Q17 14 16 14 L2 14 Q1 14 1 13 Z" fill="#ffd090"/>
+                  </svg>
+                  <span style={{ fontSize:"12px",fontWeight:"700",color:T.text }}>{folder.title}</span>
+                  <span style={{ fontSize:"10px",color:T.mutedText,marginLeft:"auto" }}>{folder.proofs.length} file{folder.proofs.length!==1?"s":""}</span>
+                </div>
+                <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))",gap:"8px" }}>
+                  {folder.proofs.map((p,i) => (
+                    <div key={i} onClick={() => setSelected(p)}
+                      style={{ borderRadius:"10px",overflow:"hidden",cursor:"pointer",border:`2px solid ${T.border}`,transition:"transform 0.15s, border-color 0.15s",position:"relative",aspectRatio:"4/3",background:T.inputBg }}
+                      onMouseEnter={e=>{ e.currentTarget.style.transform="scale(1.03)"; e.currentTarget.style.borderColor="#ffbf6e"; }}
+                      onMouseLeave={e=>{ e.currentTarget.style.transform="scale(1)"; e.currentTarget.style.borderColor=T.border; }}>
+                      <img src={p.dataUrl} alt="proof" style={{ width:"100%",height:"100%",objectFit:"cover",display:"block" }}/>
+                      <div style={{ position:"absolute",bottom:0,left:0,right:0,padding:"4px 6px",background:"linear-gradient(transparent,rgba(0,0,0,0.65))",fontSize:"9px",color:"#fff" }}>
+                        {p.subtaskTitle || p.subtaskId}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          ))
+            ))}
+          </>
         )}
       </div>
 
@@ -230,12 +312,18 @@ function SidebarIcon({ onClick, title, children, active, T }) {
 function Sidebar({ onTimerToggle, isRunning, darkMode, onToggleDark, view, onSetView, T }) {
   return (
     <div style={{ backgroundColor:T.panelBg,width:"56px",minWidth:"56px",padding:"16px 8px",borderRadius:"30px",display:"flex",flexDirection:"column",alignItems:"center",gap:"8px",flexShrink:0 }}>
+      {/* Top: functional icons */}
       <SidebarIcon onClick={onTimerToggle} title="Timer" active={isRunning} T={T}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       </SidebarIcon>
       <SidebarIcon onClick={()=>onSetView(view==="album"?"roadmap":"album")} title="Proof Album" active={view==="album"} T={T}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
       </SidebarIcon>
+
+      {/* Spacer pushes theme toggle to bottom */}
+      <div style={{ flex:1 }} />
+
+      {/* Bottom: light/dark mode toggle */}
       <SidebarIcon onClick={onToggleDark} title={darkMode?"Light Mode":"Dark Mode"} T={T}>
         {darkMode
           ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -250,6 +338,13 @@ function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, streak, notif
   const [pendingDelete, setPendingDelete] = useState(null);
   const [bellOpen, setBellOpen]           = useState(false);
   const bellRef = useRef(null);
+
+  // Animated streak icon — 2 frames loop
+  const [streakFrame, setStreakFrame] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setStreakFrame(f => (f + 1) % 2), 125);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     if (!bellOpen) return;
@@ -276,8 +371,9 @@ function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, streak, notif
         ))}
         <button style={{ backgroundColor:"#ffbf6e",border:"none",borderRadius:"50%",width:"28px",height:"28px",color:"#0E131C",fontSize:"18px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",marginLeft:"8px",marginBottom:"6px",fontWeight:"bold",fontFamily:"inherit",flexShrink:0 }} onClick={onAddTab}>+</button>
         <div style={{ marginLeft:"auto",display:"flex",alignItems:"center",gap:"10px",paddingBottom:"6px",paddingRight:"4px",flexShrink:0 }}>
-          <div style={{ display:"flex",alignItems:"center",gap:"6px",backgroundColor:T.panelBg,borderRadius:"10px",padding:"6px 12px 6px 10px" }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="#ffbf6e" stroke="none"><path d="M12 2C12 2 7 8 7 13a5 5 0 0 0 10 0c0-2.5-1.5-5-2-6.5C14.5 8 14 10 12 11c0 0 1-4-0-9z"/></svg>
+          {/* Streak badge with animated cat/cookie icon */}
+          <div style={{ display:"flex",alignItems:"center",gap:"6px",backgroundColor:T.panelBg,borderRadius:"10px",padding:"4px 12px 4px 8px" }}>
+            <StreakAnimatedBadge frame={streakFrame} size={28} />
             <span style={{ fontSize:"18px",fontWeight:"bold",color:T.text,lineHeight:1 }}>{streak}</span>
           </div>
           <div ref={bellRef} style={{ position:"relative" }}>
@@ -293,6 +389,52 @@ function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, streak, notif
         </div>
       </div>
     </>
+  );
+}
+
+// ── Animated streak badge — swaps between 2 cat frames ────────────────────────
+// HOW TO ADD YOUR FRAMES:
+// 1. Put gif1-frame1.png and gif1-frame2.png into frontend/src/assets/
+// 2. At the top of this file, add:
+//      import streakFrame1 from "./assets/gif1-frame1.png";
+//      import streakFrame2 from "./assets/gif1-frame2.png";
+// 3. Replace the <StreakAnimatedBadge> component body to use those imports:
+//      const FRAMES = [streakFrame1, streakFrame2];
+//      function StreakAnimatedBadge({ frame, size }) {
+//        return <img src={FRAMES[frame]} style={{ width:size, height:size, objectFit:"contain" }} alt="streak" />;
+//      }
+function StreakAnimatedBadge({ frame, size = 28 }) {
+  // Placeholder SVG cat cookie until PNGs are added
+  // Frame 0 = mouth open (eating), Frame 1 = eyes closed (chomping)
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" style={{ flexShrink:0 }}>
+      {/* Cookie body */}
+      <circle cx="16" cy="16" r="13" fill="#c8832a"/>
+      <circle cx="16" cy="16" r="13" fill="none" stroke="#a06020" strokeWidth="1.5"/>
+      {/* Choc chips */}
+      <circle cx="11" cy="12" r="2" fill="#6b3a0f"/>
+      <circle cx="18" cy="10" r="1.5" fill="#6b3a0f"/>
+      <circle cx="14" cy="19" r="2" fill="#6b3a0f"/>
+      <circle cx="21" cy="18" r="1.5" fill="#6b3a0f"/>
+      <circle cx="10" cy="20" r="1" fill="#6b3a0f"/>
+      {/* Cat ears on top */}
+      <polygon points="9,5 6,0 12,3" fill="#c8832a" stroke="#a06020" strokeWidth="1"/>
+      <polygon points="23,5 20,3 26,0" fill="#c8832a" stroke="#a06020" strokeWidth="1"/>
+      {frame === 0
+        ? /* Frame 0: eyes open, mouth open */
+          <>
+            <circle cx="13" cy="14" r="1.5" fill="#3b1a00"/>
+            <circle cx="19" cy="14" r="1.5" fill="#3b1a00"/>
+            <path d="M14 19 Q16 22 18 19" stroke="#3b1a00" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
+          </>
+        : /* Frame 1: eyes closed (> <), biting */
+          <>
+            <path d="M11.5 13.5 L14.5 15" stroke="#3b1a00" strokeWidth="1.5" strokeLinecap="round"/>
+            <path d="M17.5 15 L20.5 13.5" stroke="#3b1a00" strokeWidth="1.5" strokeLinecap="round"/>
+            <path d="M14 19 L18 19" stroke="#3b1a00" strokeWidth="1.2" strokeLinecap="round"/>
+          </>
+      }
+    </svg>
   );
 }
 
@@ -382,14 +524,12 @@ function FileUploadZone({ onAtomizeFile, T }) {
 function CountdownTimer({ timer, T }) {
   const { remaining, isRunning, mode, setMode, start, pause, reset, setDuration, formatTime, pct, totalSeconds } = timer;
 
-  // FIX: plain text input, cursor-editable, Enter to save only
   const [editing, setEditing] = useState(false);
   const [editVal, setEditVal] = useState("");
   const inputRef = useRef(null);
 
   const openEdit = () => {
     if (isRunning) return;
-    // Pre-fill as HH:MM:SS
     const h = Math.floor(totalSeconds/3600);
     const m = Math.floor((totalSeconds%3600)/60);
     const s = totalSeconds%60;
@@ -445,7 +585,6 @@ function CountdownTimer({ timer, T }) {
               onKeyDown={e => {
                 if (e.key === "Enter") applyEdit();
                 if (e.key === "Escape") setEditing(false);
-                // Let arrow keys nudge minutes naturally via cursor
               }}
               style={{ width:"84px",background:"transparent",border:"none",borderBottom:`2px solid ${accent}`,color:accent,fontSize:"18px",fontWeight:"bold",textAlign:"center",fontFamily:"inherit",outline:"none",letterSpacing:"2px" }}
               placeholder="25:00"
@@ -476,9 +615,19 @@ function Scoreboard({ xp, streak, timer, totalNodes, T }) {
   const maxXp=(totalNodes||5)*150, pct=(xp/maxXp)*100;
   const msg=streak>0?`You are on a ${streak}-day streak!`:"No streak yet!";
   const sub=streak>=7?"Unstoppable! 🔥":streak>=3?"Keep it up!":streak>=1?"Good start!":"Complete a task to start!";
+
+  const [frame, setFrame] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setFrame(f => (f + 1) % 2), 125);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <div className={T.scrollbar} style={{ flex:1,backgroundColor:T.panelBg,borderRadius:"20px",padding:"20px 16px",display:"flex",flexDirection:"column",alignItems:"center",overflowY:"auto" }}>
-      <div style={{ fontSize:"64px",marginBottom:"6px",lineHeight:1 }}>🍪</div>
+      {/* Animated 2-frame streak icon */}
+      <div style={{ marginBottom:"6px",lineHeight:1 }}>
+        <StreakAnimatedBadge frame={frame} size={64} />
+      </div>
       <div style={{ fontSize:"15px",fontWeight:"bold",color:T.text,textAlign:"center",marginBottom:"2px" }}>{msg}</div>
       <div style={{ fontSize:"12px",color:T.subText,textAlign:"center",marginBottom:"14px" }}>{sub}</div>
       <div style={{ width:"100%" }}>
@@ -602,9 +751,9 @@ export default function Breadcrumber() {
   const [activeTab, setActiveTab] = useState(0);
   const [tabData, setTabData]     = useState({1:blankProject(),2:blankProject(),3:blankProject()});
   const [darkMode, setDarkMode] = useState(() => {
-  const saved = localStorage.getItem("darkMode");
-  return saved !== null ? saved === "true" : true;
-});
+    const saved = localStorage.getItem("darkMode");
+    return saved !== null ? saved === "true" : true;
+  });
   const [notifications, setNotifications] = useState([]);
   const [view, setView]           = useState("roadmap");
 
@@ -618,10 +767,8 @@ export default function Breadcrumber() {
     setTabData(prev => ({ ...prev, [id]: updater(prev[id] || blankProject()) }));
   }, []);
 
-  // ── FIX: sync tab label to project title ──────────────────────────────────
   const setTitle = (v) => {
     updateProject(currentTabId, p => ({ ...p, title: v }));
-    // Update the tab label to match — fallback to "Project N" when empty
     setTabs(prev => prev.map(t => t.id === currentTabId
       ? { ...t, label: v.trim() || `Project ${currentTabId}` }
       : t
@@ -658,23 +805,21 @@ export default function Breadcrumber() {
   };
 
   const handleAtomize = async (projectName, cat) => {
-  try {
-    const data = await atomizeProject(projectName, cat);
-    updateProject(currentTabId, p => ({
-      ...p, nodes: data.nodes, activeNode: 0,
-      xp: 0, completedNodes: [], hasRoadmap: true, proofAlbum: {}
-    }));
-  } catch (err) {
-    console.error("Atomize failed:", err);
-    alert(`Atomize failed: ${err.message}`);
-  }
-};
+    try {
+      const data = await atomizeProject(projectName, cat);
+      updateProject(currentTabId, p => ({
+        ...p, nodes: data.nodes, activeNode: 0,
+        xp: 0, completedNodes: [], hasRoadmap: true, proofAlbum: {}
+      }));
+    } catch (err) {
+      console.error("Atomize failed:", err);
+      alert(`Atomize failed: ${err.message}`);
+    }
+  };
 
-  // ── FIX: handleAtomizeFile properly sets hasRoadmap and merges project ────
   const handleAtomizeFile = (parsed) => {
     if (!parsed?.nodes?.length) return;
     const newTitle = parsed.project_name || "";
-    // Update tab label if we got a project name from the file
     if (newTitle) {
       setTabs(prev => prev.map(t => t.id === currentTabId ? {...t, label: newTitle} : t));
     }
@@ -719,8 +864,8 @@ export default function Breadcrumber() {
         * { box-sizing: border-box; }
         .upload-zone:hover { border-color: #ffbf6e !important; }
         .scrollbar-light::-webkit-scrollbar{width:6px}
-        .scrollbar-light::-webkit-scrollbar-track{background:#e0e3ef;border-radius:10px}
-        .scrollbar-light::-webkit-scrollbar-thumb{background:#b0b8d4;border-radius:10px}
+        .scrollbar-light::-webkit-scrollbar-track{background:#d4b896;border-radius:10px}
+        .scrollbar-light::-webkit-scrollbar-thumb{background:#b89470;border-radius:10px}
         .scrollbar-dark::-webkit-scrollbar{width:6px}
         .scrollbar-dark::-webkit-scrollbar-track{background:#1a1f35;border-radius:10px}
         .scrollbar-dark::-webkit-scrollbar-thumb{background:#3a4060;border-radius:10px}
@@ -731,11 +876,11 @@ export default function Breadcrumber() {
 
       <div style={{ display:"flex",gap:"16px",padding:"16px",height:"100%",boxSizing:"border-box" }}>
         <Sidebar onTimerToggle={()=>timer.isRunning?timer.pause():timer.start()} isRunning={timer.isRunning} darkMode={darkMode} onToggleDark={() => {
-  setDarkMode(d => {
-    localStorage.setItem("darkMode", String(!d));
-    return !d;
-  });
-}} view={view} onSetView={setView} T={T}/>
+          setDarkMode(d => {
+            localStorage.setItem("darkMode", String(!d));
+            return !d;
+          });
+        }} view={view} onSetView={setView} T={T}/>
         <div style={{ flex:1,display:"flex",flexDirection:"column",minWidth:0 }}>
           <Nav tabs={tabs} activeTab={activeTab} onTabClick={setActiveTab} onAddTab={handleAddTab} onDeleteTab={handleDeleteTab} streak={streak} notifications={notifications} onClearNotifs={()=>setNotifications([])} T={T}/>
           <div style={{ backgroundColor:T.cardBg,flex:1,borderRadius:"0 12px 12px 12px",overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0 }}>
@@ -743,7 +888,7 @@ export default function Breadcrumber() {
             <div style={{ display:"flex",gap:"12px",flex:1,padding:"12px 16px 16px",minHeight:0 }}>
               {view==="album"
                 ? <div className={T.scrollbar} style={{ flex:"0 0 58%",backgroundColor:T.panelBg,borderRadius:"20px",overflow:"hidden",display:"flex",flexDirection:"column" }}>
-                    <AlbumView proofAlbum={project.proofAlbum||{}} T={T}/>
+                    <AlbumView proofAlbum={project.proofAlbum||{}} nodes={project.nodes||[]} T={T}/>
                   </div>
                 : <Roadmap nodes={project.nodes} activeNode={project.activeNode} onCompleteSubtask={handleCompleteSubtask} onAtomizeFile={handleAtomizeFile} hasRoadmap={project.hasRoadmap} T={T}/>
               }
