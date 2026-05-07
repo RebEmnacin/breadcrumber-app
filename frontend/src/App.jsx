@@ -78,17 +78,10 @@ const lightTheme = {
 };
 const ROW_H = 44;
 
-// ── Animated cookie/cat GIF streaks icon ──────────────────────────────────────
-// Uses two frames that swap at ~8fps to simulate a looping GIF animation.
-// To use your own frames: drop gif1-frame1.png and gif1-frame2.png into
-//   frontend/src/assets/
-// Then update the two import lines below:
+// ── Animated GIF streaks icon ──────────────────────────────────────
 import streakFrame1 from "./assets/gif1-frame1.png";
 import streakFrame2 from "./assets/gif1-frame2.png";
-// The component below handles the 2-frame loop automatically.
 function StreakIcon({ size = 32 }) {
-  // Inline SVG placeholder — swapped out once user adds their PNG frames.
-  // If you add the images, import them at the top of this file and pass them as props.
   const [frame, setFrame] = useState(0);
   const frames = StreakIcon._frames || null;
 
@@ -108,15 +101,10 @@ function StreakIcon({ size = 32 }) {
     );
   }
 
-  // Fallback: cookie SVG until user adds frames
   return (
  StreakIcon._frames = [f1, f2]);
   
 }
-// Call this from your build setup to inject the image URLs, e.g.:
-// import f1 from "./assets/gif1-frame1.png";
-// import f2 from "./assets/gif1-frame2.png";
-// StreakIcon._frames = [f1, f2];
 
 // ── Timer-done popup ──────────────────────────────────────────────────────────
 function TimerBreakPopup({ mode, onOkay, T }) {
@@ -187,8 +175,7 @@ function AlbumView({ proofAlbum, nodes, T }) {
 
   const toggleFolder = (id) => setOpenFolders(prev => ({ ...prev, [id]: !prev[id] }));
 
-  // Group proofAlbum by task (node), preserving roadmap category order
-  // Each "folder" = one node/phase, contains subtask proofs within it
+
   const folders = (nodes || []).map(node => {
     const subtaskProofs = (node.subtasks || []).flatMap(sub => {
       const proofs = proofAlbum[sub.subtask_id] || [];
@@ -197,7 +184,6 @@ function AlbumView({ proofAlbum, nodes, T }) {
     return { nodeId: node.node_id, title: node.title, proofs: subtaskProofs };
   }).filter(f => f.proofs.length > 0);
 
-  // Also include any proofAlbum entries not matched to nodes (fallback)
   const matchedSubtaskIds = new Set(
     (nodes || []).flatMap(n => (n.subtasks || []).map(s => s.subtask_id))
   );
@@ -364,7 +350,7 @@ function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, streak, notif
       {/* 1. TOP UTILITY GROUP (Right Edge) */}
       <div style={{ 
         position: "absolute",
-        top: "4px", // Lowered slightly
+        top: "4px", 
         right: "0px",
         display: "flex", 
         alignItems: "center", 
@@ -441,7 +427,7 @@ function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, streak, notif
             justifyContent: "center", 
             fontWeight: "bold",
             marginLeft: "8px",
-            marginBottom: "6px", // Keeps it aligned with tab text height
+            marginBottom: "6px", 
             flexShrink: 0
           }}
         >
@@ -550,7 +536,6 @@ function FileUploadZone({ onAtomizeFile, T }) {
               height: "100px", 
               objectFit: "contain",
               opacity: dragging ? 1 : 0.7,
-              // Optional: Add a spinning animation if you want it to look "loading" while dragging
               animation: dragging ? "spin 2s linear infinite" : "none"
             }} 
           />
