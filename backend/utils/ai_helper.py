@@ -2,8 +2,7 @@ import os
 import json
 import asyncio
 from functools import partial
-from google import genai
-from google.genai import types
+from groq import Groq
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,42 +10,31 @@ load_dotenv()
 
 class AtomizerAI:
     def __init__(self):
-        self.client   = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-        # ── Use flash model for speed — 2.0 is significantly faster than 2.5 ──
-        self.model_id = "gemini-2.0-flash"
+        self.client   = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        self.model_id = "llama-3.3-70b-versatile"
 
-    async def _generate(self, contents):
-        """Wrap the synchronous Gemini SDK call in a thread so FastAPI stays non-blocking."""
+    async def _generate(self, prompt: str) -> str:
+        """Run Groq in a thread so FastAPI stays non-blocking."""
         loop = asyncio.get_event_loop()
         fn   = partial(
-            self.client.models.generate_content,
+            self.client.chat.completions.create,
             model=self.model_id,
-            contents=contents,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=4000,
         )
         response = await loop.run_in_executor(None, fn)
-        return response.text
+        return response.choices[0].message.content.strip()
 
-    # ── 1. Text-only roadmap from a project name ──────────────────────────────
+    # ── Text atomize ──────────────────────────────────────────────────────────
     async def generate_roadmap(self, project_name: str, category: str) -> list:
-        # Single-call prompt — no scope detection step, much faster
         prompt = f"""You are an ADHD-friendly productivity coach.
 
-Break the project '{project_name}' ({category}) into 3-5 major phases.
-For each phase, provide 3-5 tiny subtasks (max 15 minutes each).
+Break "{project_name}" ({category}) into 3-5 phases with 3-5 subtasks each.
+Rules: action verbs only, 15-min max per task, first task must be brain-dead easy, NO markdown.
+Return ONLY a raw JSON array, nothing else:
+[{{"category":"Phase Name","subtasks":["Task 1","Task 2","Task 3"]}}]"""
 
-RULES:
-1. Every subtask starts with a strong action verb.
-2. Each subtask is concrete and physical.
-3. First subtask of first phase must be brain-dead easy.
-4. NO fluff, NO markdown, NO explanation.
-
-Return ONLY a raw JSON array:
-[
-  {{
-    "category": "Phase Name",
-    "subtasks": ["Subtask 1", "Subtask 2", "Subtask 3"]
-  }}
-]"""
         try:
             text = await self._generate(prompt)
             return self._parse_phases(text)
@@ -54,67 +42,77 @@ Return ONLY a raw JSON array:
             print(f"[AtomizerAI] generate_roadmap error: {e}")
             return self._fallback_phases(project_name)
 
-    # ── 2. File-based roadmap ─────────────────────────────────────────────────
+    # ── File analysis ─────────────────────────────────────────────────────────
     async def analyze_file(self, file_bytes: bytes, media_type: str, filename: str) -> dict:
-        """Send file to Gemini and return { project_name, nodes }."""
-
-        analysis_prompt = """You are an expert academic content analyzer and ADHD productivity coach.
-
-Analyze this file thoroughly. Identify ALL topics, chapters, lessons, and assessments (quizzes, assignments, activities, labs, exams).
-
-Return ONLY valid JSON — no markdown fences, no preamble, nothing else:
-{
-  "project_name": "short descriptive title from the content",
-  "nodes": [
-    {
-      "node_id": 1,
-      "title": "Phase or Chapter Name",
-      "is_completed": false,
-      "subtasks": [
-        { "subtask_id": "1-1", "title": "Review: specific topic", "is_completed": false },
-        { "subtask_id": "1-2", "title": "Quiz: topic name", "is_completed": false }
-      ]
-    }
-  ]
-}
-
-RULES:
-- Each node = one major topic / chapter / phase
-- Each subtask = one specific review item, concept, or assessment
-- Prefix assessments: "Quiz:", "Assignment:", "Activity:", "Lab:", "Exam:"
-- Spread content meaningfully — do NOT lump everything into one node
-- Keep subtask titles short and actionable"""
-
-        TEXT_TYPES   = {"text/plain", "text/markdown", "text/csv"}
-        BINARY_TYPES = {"application/pdf", "image/png", "image/jpeg", "image/gif", "image/webp"}
+        # Groq doesn't support binary files directly — extract text first
+        TEXT_TYPES = {"text/plain", "text/markdown", "text/csv"}
 
         fname = (filename or "").lower()
-        if media_type not in TEXT_TYPES and media_type not in BINARY_TYPES:
+        if media_type not in TEXT_TYPES:
             if fname.endswith((".txt", ".md", ".csv")):
-                media_type = "text/plain"
-            elif fname.endswith(".pdf"):
-                media_type = "application/pdf"
-            elif fname.endswith((".jpg", ".jpeg")):
-                media_type = "image/jpeg"
-            elif fname.endswith(".png"):
-                media_type = "image/png"
-            else:
                 media_type = "text/plain"
 
         if media_type in TEXT_TYPES:
-            text_content = file_bytes.decode("utf-8", errors="replace")[:12000]
-            contents = f"{analysis_prompt}\n\nFile content:\n{text_content}"
+            file_text = file_bytes.decode("utf-8", errors="replace")[:10000]
         else:
-            part_file = types.Part.from_bytes(data=file_bytes, mime_type=media_type)
-            contents  = [part_file, analysis_prompt]
+            # For PDFs and images, extract text using pypdf
+            if media_type == "application/pdf" or fname.endswith(".pdf"):
+                file_text = self._extract_pdf_text(file_bytes)
+            else:
+                raise ValueError("Groq only supports text files and PDFs. Please upload a PDF or TXT file.")
+
+        prompt = f"""You are an expert academic content analyzer and ADHD productivity coach.
+
+Read this file content carefully. Extract every major topic, chapter, and concept.
+
+Produce a structured study roadmap in this EXACT JSON format:
+
+{{
+  "project_name": "short title of the module or file",
+  "nodes": [
+    {{
+      "node_id": 0,
+      "title": "Major Topic or Chapter Name",
+      "is_completed": false,
+      "subtasks": [
+        {{ "subtask_id": "0-0", "title": "Specific concept or definition", "is_completed": false }},
+        {{ "subtask_id": "0-1", "title": "Another concept under this topic", "is_completed": false }},
+        {{ "subtask_id": "0-2", "title": "Write notes", "is_completed": false }}
+      ]
+    }},
+    {{
+      "node_id": 1,
+      "title": "Second Major Topic",
+      "is_completed": false,
+      "subtasks": [
+        {{ "subtask_id": "1-0", "title": "Specific concept", "is_completed": false }},
+        {{ "subtask_id": "1-1", "title": "Write notes", "is_completed": false }}
+      ]
+    }}
+  ]
+}}
+
+STRICT RULES:
+1. Return ONLY raw JSON — no markdown, no explanation, nothing else
+2. node_id starts at 0 and increments by 1
+3. subtask_id format: "nodeIndex-subtaskIndex" (e.g. "0-0", "1-2")
+4. Each node = one major topic or chapter from the file
+5. Each subtask = one specific concept, definition, or item under that topic
+6. Always end each node's subtasks with a "Write notes" subtask
+7. If file has quiz/assignment/activity/exam — add as subtask with prefix: "Quiz:", "Assignment:", "Activity:", "Seatwork:"
+8. Do NOT lump everything into one node — spread across meaningful categories
+9. Keep subtask titles concise (under 10 words) but descriptive
+10. is_completed is always false
+
+File content:
+{file_text}"""
 
         try:
-            raw = await self._generate(contents)
+            raw = await self._generate(prompt)
         except Exception as e:
-            raise ValueError(f"Gemini API error: {e}")
+            raise ValueError(f"Groq API error: {e}")
 
         clean = raw.strip().replace("```json", "").replace("```", "").strip()
-
         if not clean.startswith("{"):
             start = clean.find("{")
             if start != -1:
@@ -123,20 +121,27 @@ RULES:
         try:
             parsed = json.loads(clean)
         except json.JSONDecodeError as e:
-            raise ValueError(f"Could not parse Gemini JSON: {e}\nRaw: {raw[:300]}")
+            raise ValueError(f"Could not parse response: {e}\nRaw: {raw[:300]}")
 
         if "nodes" not in parsed:
-            raise ValueError(f"Missing 'nodes' in response. Keys: {list(parsed.keys())}")
+            raise ValueError(f"Missing 'nodes'. Keys: {list(parsed.keys())}")
 
         return parsed
 
-    # ── 3. Sub-atomize ────────────────────────────────────────────────────────
-    async def atomize_subtask(self, parent_title: str) -> list:
-        return [
-            f"Break down: {parent_title} — step 1",
-            f"Break down: {parent_title} — step 2",
-            f"Break down: {parent_title} — step 3",
-        ]
+    def _extract_pdf_text(self, file_bytes: bytes) -> str:
+        """Extract text from PDF using pypdf."""
+        try:
+            import io
+            from pypdf import PdfReader
+            reader = PdfReader(io.BytesIO(file_bytes))
+            text = ""
+            for page in reader.pages:
+                text += page.extract_text() or ""
+            return text[:10000]
+        except ImportError:
+            raise ValueError("pypdf not installed. Run: pip install pypdf")
+        except Exception as e:
+            raise ValueError(f"Could not read PDF: {e}")
 
     # ── helpers ───────────────────────────────────────────────────────────────
     def _parse_phases(self, raw_text: str) -> list:
