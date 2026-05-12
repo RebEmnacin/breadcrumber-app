@@ -4,3 +4,4 @@ google-genai # FOR Google Generative AI API integration.
 pydantic  # For data validation and settings management using Python type annotations.
 python-dotenv # For loading environment variables from a .env file, which can be useful for managing configuration settings.
 httpx # For making asynchronous HTTP requests, which can be useful for calling external APIs or services.
+python-multipart

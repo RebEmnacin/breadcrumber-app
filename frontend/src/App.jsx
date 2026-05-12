@@ -324,9 +324,12 @@ function Sidebar({ onTimerToggle, isRunning, darkMode, onToggleDark, view, onSet
 }
 
 // ── Nav ───────────────────────────────────────────────────────────────────────
-function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, streak, notifications, onClearNotifs, T }) {
+function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, onRenameTab, streak, notifications, onClearNotifs, T }) {
   const [pendingDelete, setPendingDelete] = useState(null);
-  const [bellOpen, setBellOpen]           = useState(false);
+  const [bellOpen, setBellOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState(null); // {x, y, tabIndex}
+  const [renamingTab, setRenamingTab] = useState(null); // tabIndex
+  const [renameVal, setRenameVal] = useState("");
   const bellRef = useRef(null);
 
   useEffect(() => {
@@ -381,34 +384,121 @@ function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, streak, notif
       {/* 2. TABS ROW + PLUS BUTTON */}
       <div style={{ display: "flex", alignItems: "flex-end", overflowX: "auto", scrollbarWidth: "none", marginTop: "8px" }}>
         {tabs.map((tab, i) => (
-          <div key={tab.id} style={{ position: "relative", display: "inline-flex", marginRight: "2px" }}>
-            <button 
-              style={{ 
-                backgroundColor: activeTab === i ? T.cardBg : T.panelBg, 
-                padding: "8px 32px 8px 14px", 
-                borderRadius: "10px 10px 0 0", 
-                color: activeTab === i ? T.text : T.dimText, 
-                cursor: "pointer", 
-                fontSize: "13px", 
-                fontWeight: activeTab === i ? "600" : "400", 
-                border: "none", 
-                fontFamily: "inherit", 
-                maxWidth: "140px"
-              }} 
-              onClick={() => onTabClick(i)}
-            >
-              {tab.label}
-            </button>
-            {tabs.length > 1 && (
-              <button 
-                onClick={e => { e.stopPropagation(); setPendingDelete(i); }} 
-                style={{ position: "absolute", top: "4px", right: "6px", background: "none", border: "none", color: T.mutedText, cursor: "pointer", fontSize: "12px" }}
-              >
-                ×
-              </button>
-            )}
-          </div>
-        ))}
+  <div key={tab.id} style={{ position:"relative", display:"inline-flex", marginRight:"2px" }}>
+    {renamingTab === i ? (
+      // ── Inline rename input ──
+      <input
+        autoFocus
+        value={renameVal}
+        onChange={e => setRenameVal(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === "Enter") {
+            onRenameTab(i, renameVal);
+            setRenamingTab(null);
+          }
+          if (e.key === "Escape") setRenamingTab(null);
+        }}
+        onBlur={() => {
+          if (renameVal.trim()) onRenameTab(i, renameVal);
+          setRenamingTab(null);
+        }}
+        style={{
+          width:"120px", padding:"8px 10px",
+          borderRadius:"10px 10px 0 0",
+          border:`2px solid #ffbf6e`,
+          background:T.cardBg, color:T.text,
+          fontSize:"13px", fontFamily:"inherit",
+          outline:"none",
+        }}
+      />
+    ) : (
+      <button
+        style={{
+          backgroundColor: activeTab===i ? T.cardBg : T.panelBg,
+          padding:"8px 28px 8px 12px",
+          borderRadius:"10px 10px 0 0",
+          color: activeTab===i ? T.text : T.dimText,
+          cursor:"pointer", fontSize:"13px",
+          fontWeight: activeTab===i ? "600" : "400",
+          border:"none", fontFamily:"inherit",
+          maxWidth:"140px", minWidth:"60px",
+          // ── Truncate long names ──
+          whiteSpace:"nowrap",
+          overflow:"hidden",
+          textOverflow:"ellipsis",
+          display:"block",
+        }}
+        onClick={() => onTabClick(i)}
+        onContextMenu={e => {
+          e.preventDefault();
+          setContextMenu({ x: e.clientX, y: e.clientY, tabIndex: i });
+        }}
+        title={tab.label}
+      >
+        {tab.label}
+      </button>
+    )}
+    {tabs.length > 1 && renamingTab !== i && (
+      <button
+        onClick={e => { e.stopPropagation(); setPendingDelete(i); }}
+        style={{ position:"absolute", top:"4px", right:"5px", background:"none", border:"none", color:T.mutedText, cursor:"pointer", fontSize:"12px" }}
+      >×</button>
+    )}
+  </div>
+))}
+
+{/* ── Right-click context menu ── */}
+{contextMenu && (
+  <>
+    <div
+      style={{ position:"fixed", inset:0, zIndex:998 }}
+      onClick={() => setContextMenu(null)}
+    />
+    <div style={{
+      position:"fixed",
+      top: contextMenu.y,
+      left: contextMenu.x,
+      zIndex:999,
+      backgroundColor:T.panelBg,
+      border:`1px solid ${T.border}`,
+      borderRadius:"10px",
+      padding:"4px",
+      boxShadow:"0 4px 20px rgba(0,0,0,0.3)",
+      minWidth:"140px",
+    }}>
+      {[
+        { label:"✏️ Rename", action: () => {
+          setRenameVal(tabs[contextMenu.tabIndex]?.label || "");
+          setRenamingTab(contextMenu.tabIndex);
+          setContextMenu(null);
+        }},
+        { label:"❌ Close tab", action: () => {
+          onDeleteTab(contextMenu.tabIndex);
+          setContextMenu(null);
+        }},
+        { label:"🗑️ Delete project", action: () => {
+          setPendingDelete(contextMenu.tabIndex);
+          setContextMenu(null);
+        }},
+      ].map((item, idx) => (
+        <button key={idx} onClick={item.action}
+          style={{
+            display:"block", width:"100%",
+            padding:"8px 14px", border:"none",
+            background:"none", color:T.text,
+            textAlign:"left", cursor:"pointer",
+            fontSize:"13px", fontFamily:"inherit",
+            borderRadius:"7px",
+          }}
+          onMouseEnter={e => e.currentTarget.style.background=T.cardBg}
+          onMouseLeave={e => e.currentTarget.style.background="none"}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  </>
+)}
 
         {/* PLUS BUTTON: Back next to the tabs */}
         <button 
@@ -781,7 +871,7 @@ function Roadmap({ nodes, activeNode, onCompleteSubtask, onAtomizeFile, hasRoadm
       <div style={{ fontSize:"12px",color:T.subText,marginBottom:"16px",fontWeight:"600",letterSpacing:"1px",textTransform:"uppercase" }}>Roadmap</div>
       {!hasRoadmap && <FileUploadZone onAtomizeFile={onAtomizeFile} T={T}/>}
       {nodes.length===0
-        ? <p style={{ color:T.mutedText,fontSize:"13px",margin:0,textAlign:"left" }}>Enter a project above and hit ✨ Atomize!, or upload a file to generate your roadmap.</p>
+        ? <p style={{ color:T.mutedText,fontSize:"13px",margin:0,textAlign:"left" }}>Enter a project above and hit ✨ Crumble!, or upload a file to generate your roadmap.</p>
         : nodes.map(node=><PhaseBlock key={node.node_id} node={node} isPhaseActive={node.node_id===activeNode&&!node.is_completed} onCompleteSubtask={onCompleteSubtask} T={T}/>)
       }
     </div>
@@ -895,6 +985,11 @@ export default function Breadcrumber() {
     setActiveTab(prev=>{ if(prev===i) return Math.max(0,i-1); if(prev>i) return prev-1; return prev; });
   };
 
+  const handleRenameTab = (i, newLabel) => {
+  if (!newLabel.trim()) return;
+  setTabs(prev => prev.map((t, idx) => idx === i ? { ...t, label: newLabel.trim() } : t));
+};
+
   return (
     <div style={{ backgroundColor:T.bg,padding:"10px",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",height:"100vh",margin:0,boxSizing:"border-box",overflow:"hidden" }}>
       <style>{`
@@ -926,7 +1021,18 @@ export default function Breadcrumber() {
           });
         }} view={view} onSetView={setView} T={T}/>
         <div style={{ flex:1,display:"flex",flexDirection:"column",minWidth:0 }}>
-          <Nav tabs={tabs} activeTab={activeTab} onTabClick={setActiveTab} onAddTab={handleAddTab} onDeleteTab={handleDeleteTab} streak={streak} notifications={notifications} onClearNotifs={()=>setNotifications([])} T={T}/>
+          <Nav
+  tabs={tabs}
+  activeTab={activeTab}
+  onTabClick={setActiveTab}
+  onAddTab={handleAddTab}
+  onDeleteTab={handleDeleteTab}
+  onRenameTab={handleRenameTab}  // ← add this
+  streak={streak}
+  notifications={notifications}
+  onClearNotifs={() => setNotifications([])}
+  T={T}
+/>
           <div style={{ backgroundColor:T.cardBg,flex:1,borderRadius:"0 12px 12px 12px",overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0 }}>
             <TitleArea onAtomize={handleAtomize} title={project.title} setTitle={setTitle} desc={project.desc} setDesc={setDesc} category={project.category} setCategory={setCategory} T={T}/>
             <div style={{ display:"flex",gap:"12px",flex:1,padding:"12px 16px 16px",minHeight:0 }}>
