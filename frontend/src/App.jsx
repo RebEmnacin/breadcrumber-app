@@ -314,7 +314,7 @@ function AlbumView({ proofAlbum, nodes, T }) {
 }
 
 // ── Homepage View ─────────────────────────────────────────────────────────────
-function HomeView({ tabs, tabData, onTabClick, onAddTab, T }) {
+function HomeView({ tabs, tabData, onTabClick, onAddTab, bufferload, T }) {
   const totalProjects = tabs.length;
   const completedProjects = tabs.filter(t => {
     const p = tabData[t.id];
@@ -324,6 +324,26 @@ function HomeView({ tabs, tabData, onTabClick, onAddTab, T }) {
     const p = tabData[t.id];
     return p && p.nodes.length > 0 && !p.nodes.every(n => n.is_completed);
   }).length;
+
+  // Empty state — mascot
+  if (tabs.length === 0) {
+    return (
+      <div style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"20px",padding:"40px" }}>
+        <img src={bufferload} alt="No projects yet" style={{ width:"160px",height:"160px",objectFit:"contain",opacity:0.85,animation:"floatBob 3s ease-in-out infinite" }} />
+        <div style={{ textAlign:"center" }}>
+          <div style={{ fontSize:"20px",fontWeight:"700",color:T.text,marginBottom:"8px" }}>You have no new project!</div>
+          <div style={{ fontSize:"14px",color:T.subText,lineHeight:1.6 }}>Click <span style={{ color:"#ffbf6e",fontWeight:"700" }}>(+)</span> to start a new project.</div>
+        </div>
+        <button onClick={onAddTab}
+          style={{ marginTop:"8px",display:"flex",alignItems:"center",gap:"8px",padding:"12px 28px",borderRadius:"50px",border:"none",background:"#ffbf6e",color:"#0E131C",fontWeight:"700",fontSize:"14px",cursor:"pointer",fontFamily:"inherit",boxShadow:"0 4px 20px #ffbf6e44",transition:"transform 0.15s" }}
+          onMouseEnter={e=>e.currentTarget.style.transform="scale(1.05)"}
+          onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Start a New Project
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className={T.scrollbar} style={{ flex:1,overflowY:"auto",padding:"28px 32px" }}>
@@ -550,7 +570,7 @@ function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, onRenameTab, 
                 {tab.label}
               </button>
             )}
-            {tabs.length > 1 && renamingTab !== i && (
+            {renamingTab !== i && (
               <button
                 onClick={e => { e.stopPropagation(); setPendingDelete(i); }}
                 style={{ position:"absolute", top:"4px", right:"5px", background:"none", border:"none", color:T.mutedText, cursor:"pointer", fontSize:"12px" }}
@@ -889,19 +909,48 @@ function Roadmap({ nodes, activeNode, onCompleteSubtask, onAtomizeFile, hasRoadm
   );
 }
 
+// ── Persistence helpers ───────────────────────────────────────────────────────
+function loadState() {
+  try {
+    const raw = localStorage.getItem("breadcrumber_state");
+    if (raw) {
+      const s = JSON.parse(raw);
+      return {
+        tabs:       s.tabs       || [],
+        tabData:    s.tabData    || {},
+        tabCounter: s.tabCounter || 0,
+      };
+    }
+  } catch(e) {}
+  return { tabs: [], tabData: {}, tabCounter: 0 };
+}
+
+function saveState(tabs, tabData, tabCounter) {
+  try {
+    localStorage.setItem("breadcrumber_state", JSON.stringify({ tabs, tabData, tabCounter }));
+  } catch(e) {}
+}
+
 // ── Root ──────────────────────────────────────────────────────────────────────
 export default function Breadcrumber() {
-  const tabCounter = useRef(3);
-  const [tabs, setTabs]   = useState([{id:1,label:"Project 1"},{id:2,label:"Project 2"},{id:3,label:"Project 3"}]);
+  const initState = loadState();
+  const tabCounter = useRef(initState.tabCounter);
+  const [tabs, setTabs]       = useState(initState.tabs);
   const [activeTab, setActiveTab] = useState(0);
-  const [tabData, setTabData]     = useState({1:blankProject(),2:blankProject(),3:blankProject()});
+  const [tabData, setTabData]     = useState(initState.tabData);
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem("darkMode");
     return saved !== null ? saved === "true" : true;
   });
   const [notifications, setNotifications] = useState([]);
-  const [view, setView] = useState("roadmap");
+  // Default to home so empty state shows on load; if projects exist go to roadmap
+  const [view, setView] = useState(initState.tabs.length === 0 ? "home" : "roadmap");
   const [showMaxTabsError, setShowMaxTabsError] = useState(false);
+
+  // Persist tabs + tabData any time they change
+  useEffect(() => {
+    saveState(tabs, tabData, tabCounter.current);
+  }, [tabs, tabData]);
 
   const { streak, updateStreak } = useStreak();
   const timer        = useCountdownTimer();
@@ -974,14 +1023,20 @@ export default function Breadcrumber() {
     setTabs(prev=>[...prev,{id:newId,label:`Project ${newId}`}]);
     setTabData(prev=>({...prev,[newId]:blankProject()}));
     setActiveTab(tabs.length);
+    if (view === "home") setView("roadmap");
   };
 
   const handleDeleteTab = (i) => {
-    if (tabs.length<=1) return;
-    const dId=tabs[i].id;
-    setTabs(prev=>prev.filter((_,idx)=>idx!==i));
-    setTabData(prev=>{ const n={...prev}; delete n[dId]; return n; });
-    setActiveTab(prev=>{ if(prev===i) return Math.max(0,i-1); if(prev>i) return prev-1; return prev; });
+    const dId = tabs[i].id;
+    const newTabs = tabs.filter((_,idx) => idx !== i);
+    setTabs(newTabs);
+    setTabData(prev => { const n={...prev}; delete n[dId]; return n; });
+    if (newTabs.length === 0) {
+      setView("home");
+      setActiveTab(0);
+    } else {
+      setActiveTab(prev => { if(prev===i) return Math.max(0,i-1); if(prev>i) return prev-1; return prev; });
+    }
   };
 
   const handleRenameTab = (i, newLabel) => {
@@ -1010,6 +1065,7 @@ export default function Breadcrumber() {
         @keyframes fadeInLine    { from{opacity:0} to{opacity:1} }
         @keyframes fadeInOverlay { from{opacity:0} to{opacity:1} }
         @keyframes popIn         { 0%{opacity:0;transform:scale(0.7)} 60%{transform:scale(1.05)} 100%{opacity:1;transform:scale(1)} }
+        @keyframes floatBob       { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
         ::placeholder { color: #889; }
         * { box-sizing: border-box; }
         .upload-zone:hover { border-color: #ffbf6e !important; }
@@ -1050,7 +1106,7 @@ export default function Breadcrumber() {
           />
           <div style={{ backgroundColor:T.cardBg,flex:1,borderRadius:"0 12px 12px 12px",overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0 }}>
             {isHome ? (
-              <HomeView tabs={tabs} tabData={tabData} onTabClick={handleTabClick} onAddTab={handleAddTab} T={T} />
+              <HomeView tabs={tabs} tabData={tabData} onTabClick={handleTabClick} onAddTab={handleAddTab} bufferload={bufferload} T={T} />
             ) : (
               <>
                 <TitleArea onAtomize={handleAtomize} title={project.title} setTitle={setTitle} desc={project.desc} setDesc={setDesc} category={project.category} setCategory={setCategory} T={T}/>
