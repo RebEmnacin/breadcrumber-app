@@ -69,7 +69,6 @@ const darkTheme = {
   mutedText:"#556", inputBg:"#1a1f35", trackBg:"#2a2f45",
   completedLine:"#ffffff", isDark:true, scrollbar:"scrollbar-dark",
 };
-// ── Light theme: coffee/bread/khaki palette ───────────────────────────────────
 const lightTheme = {
   bg:"#e8d9c4", panelBg:"#f2e8d9", cardBg:"#fdf6ec",
   border:"#d4b896", text:"#3b2a1a", subText:"#7a5c3e", dimText:"#9e7a56",
@@ -87,7 +86,7 @@ function StreakIcon({ size = 32 }) {
 
   useEffect(() => {
     if (!frames) return;
-    const id = setInterval(() => setFrame(f => (f + 1) % 2), 500); // ~8fps
+    const id = setInterval(() => setFrame(f => (f + 1) % 2), 500);
     return () => clearInterval(id);
   }, [frames]);
 
@@ -145,6 +144,31 @@ function DeleteConfirmModal({ projectLabel, onConfirm, onCancel, T }) {
   );
 }
 
+// ── Max Tabs Error Popup ───────────────────────────────────────────────────────
+function MaxTabsPopup({ onClose, T }) {
+  return (
+    <div style={{ position:"fixed",inset:0,zIndex:9500,backgroundColor:"rgba(0,0,0,0.6)",display:"flex",alignItems:"center",justifyContent:"center",animation:"fadeInOverlay 0.2s ease" }}>
+      <div style={{ backgroundColor:T.panelBg,border:"2px solid #ff4444",borderRadius:"20px",padding:"32px 40px",maxWidth:"340px",width:"90%",textAlign:"center",boxShadow:"0 20px 60px rgba(255,68,68,0.25)",animation:"popIn 0.3s cubic-bezier(0.34,1.56,0.64,1)" }}>
+        <div style={{ marginBottom:"14px",display:"flex",justifyContent:"center" }}>
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ff4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
+        <div style={{ fontSize:"18px",fontWeight:"800",color:T.text,marginBottom:"8px" }}>Maximum tabs reached</div>
+        <div style={{ fontSize:"13px",color:T.subText,lineHeight:1.6,marginBottom:"24px" }}>
+          You can have up to <strong style={{ color:"#ffbf6e" }}>10 tabs</strong> open at once.<br/>Close a tab to open a new one.
+        </div>
+        <button onClick={onClose} style={{ padding:"10px 32px",borderRadius:"50px",border:"none",background:"#ff4444",color:"#fff",fontWeight:"700",fontSize:"14px",cursor:"pointer",fontFamily:"inherit" }}
+          onMouseEnter={e=>e.currentTarget.style.opacity="0.85"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+          Got it
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Bell menu ─────────────────────────────────────────────────────────────────
 function BellMenu({ notifications, onClear, T }) {
   return (
@@ -175,7 +199,6 @@ function AlbumView({ proofAlbum, nodes, T }) {
 
   const toggleFolder = (id) => setOpenFolders(prev => ({ ...prev, [id]: !prev[id] }));
 
-
   const folders = (nodes || []).map(node => {
     const subtaskProofs = (node.subtasks || []).flatMap(sub => {
       const proofs = proofAlbum[sub.subtask_id] || [];
@@ -200,9 +223,11 @@ function AlbumView({ proofAlbum, nodes, T }) {
       {/* Header */}
       <div style={{ padding:"18px 20px 12px",borderBottom:`1px solid ${T.border}`,flexShrink:0 }}>
         <div style={{ display:"flex",alignItems:"center",gap:"10px" }}>
-          <div style={{ width:"32px",height:"32px",borderRadius:"8px",background:"linear-gradient(135deg,#ffbf6e,#ff8c42)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0E131C" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          </div>
+          {/* SVG icon with no gradient background */}
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ffbf6e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
           <div>
             <div style={{ fontSize:"15px",fontWeight:"700",color:T.text,lineHeight:1 }}>Proof Album</div>
             <div style={{ fontSize:"11px",color:T.mutedText,marginTop:"2px" }}>{totalPhotos} screenshot{totalPhotos!==1?"s":""} · {folders.length} folder{folders.length!==1?"s":""}</div>
@@ -288,6 +313,109 @@ function AlbumView({ proofAlbum, nodes, T }) {
   );
 }
 
+// ── Homepage View ─────────────────────────────────────────────────────────────
+function HomeView({ tabs, tabData, onTabClick, onAddTab, T }) {
+  const totalProjects = tabs.length;
+  const completedProjects = tabs.filter(t => {
+    const p = tabData[t.id];
+    return p && p.nodes.length > 0 && p.nodes.every(n => n.is_completed);
+  }).length;
+  const activeProjects = tabs.filter(t => {
+    const p = tabData[t.id];
+    return p && p.nodes.length > 0 && !p.nodes.every(n => n.is_completed);
+  }).length;
+
+  return (
+    <div className={T.scrollbar} style={{ flex:1,overflowY:"auto",padding:"28px 32px" }}>
+      {/* Hero */}
+      <div style={{ marginBottom:"32px" }}>
+        <div style={{ fontSize:"28px",fontWeight:"800",color:T.text,marginBottom:"6px",lineHeight:1.2 }}>
+          Welcome to <span style={{ color:"#ffbf6e" }}>Breadcrumber</span> 🍪
+        </div>
+        <div style={{ fontSize:"14px",color:T.subText,lineHeight:1.6,maxWidth:"480px" }}>
+          Break your projects into bite-sized crumbs. Track progress, attach proof, and stay on your streak.
+        </div>
+      </div>
+
+      {/* Stats row */}
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"12px",marginBottom:"32px" }}>
+        {[
+          { label:"Total Projects", value:totalProjects, icon:(
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffbf6e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          )},
+          { label:"In Progress", value:activeProjects, icon:(
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4caf7d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          )},
+          { label:"Completed", value:completedProjects, icon:(
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7effd4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          )},
+        ].map(stat => (
+          <div key={stat.label} style={{ backgroundColor:T.panelBg,borderRadius:"16px",padding:"18px 20px",border:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:"14px" }}>
+            <div style={{ width:"40px",height:"40px",borderRadius:"10px",background:T.inputBg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+              {stat.icon}
+            </div>
+            <div>
+              <div style={{ fontSize:"24px",fontWeight:"800",color:T.text,lineHeight:1 }}>{stat.value}</div>
+              <div style={{ fontSize:"11px",color:T.mutedText,marginTop:"3px" }}>{stat.label}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Project list */}
+      <div style={{ marginBottom:"16px",display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+        <div style={{ fontSize:"12px",fontWeight:"700",color:T.subText,letterSpacing:"1px",textTransform:"uppercase" }}>Your Projects</div>
+        <button onClick={onAddTab} style={{ display:"flex",alignItems:"center",gap:"6px",padding:"6px 14px",borderRadius:"8px",border:"none",background:"#ffbf6e",color:"#0E131C",fontWeight:"700",fontSize:"12px",cursor:"pointer",fontFamily:"inherit" }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Project
+        </button>
+      </div>
+
+      <div style={{ display:"flex",flexDirection:"column",gap:"10px" }}>
+        {tabs.map((tab, i) => {
+          const proj = tabData[tab.id] || blankProject();
+          const totalSubs = proj.nodes.flatMap(n => n.subtasks || []).length;
+          const doneSubs  = proj.nodes.flatMap(n => n.subtasks || []).filter(s => s.is_completed).length;
+          const pct = totalSubs > 0 ? Math.round((doneSubs / totalSubs) * 100) : 0;
+          const isComplete = proj.nodes.length > 0 && proj.nodes.every(n => n.is_completed);
+
+          return (
+            <button key={tab.id} onClick={() => onTabClick(i)}
+              style={{ backgroundColor:T.panelBg,border:`1px solid ${T.border}`,borderRadius:"14px",padding:"16px 20px",cursor:"pointer",textAlign:"left",fontFamily:"inherit",display:"flex",alignItems:"center",gap:"16px",transition:"all 0.15s",width:"100%" }}
+              onMouseEnter={e=>{ e.currentTarget.style.borderColor="#ffbf6e"; e.currentTarget.style.transform="translateY(-1px)"; }}
+              onMouseLeave={e=>{ e.currentTarget.style.borderColor=T.border; e.currentTarget.style.transform="translateY(0)"; }}>
+              {/* Status dot */}
+              <div style={{ width:"10px",height:"10px",borderRadius:"50%",flexShrink:0,background:isComplete?"#4caf7d":proj.nodes.length>0?"#ffbf6e":T.border }} />
+              <div style={{ flex:1,minWidth:0 }}>
+                <div style={{ fontSize:"14px",fontWeight:"600",color:T.text,marginBottom:"6px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
+                  {tab.label}
+                </div>
+                {proj.nodes.length > 0 ? (
+                  <div style={{ display:"flex",alignItems:"center",gap:"10px" }}>
+                    <div style={{ flex:1,height:"5px",backgroundColor:T.trackBg,borderRadius:"3px",overflow:"hidden" }}>
+                      <div style={{ width:`${pct}%`,height:"100%",background:isComplete?"#4caf7d":"#ffbf6e",borderRadius:"3px",transition:"width 0.3s" }}/>
+                    </div>
+                    <span style={{ fontSize:"11px",color:T.mutedText,flexShrink:0 }}>{doneSubs}/{totalSubs} tasks</span>
+                  </div>
+                ) : (
+                  <div style={{ fontSize:"11px",color:T.mutedText }}>No roadmap yet — click to start</div>
+                )}
+              </div>
+              {proj.category && (
+                <span style={{ fontSize:"10px",padding:"3px 10px",borderRadius:"20px",background:T.inputBg,color:T.subText,flexShrink:0 }}>{proj.category}</span>
+              )}
+              {/* Arrow */}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.dimText} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 function SidebarIcon({ onClick, title, children, active, T }) {
   const [h, setH] = useState(false);
@@ -302,18 +430,31 @@ function SidebarIcon({ onClick, title, children, active, T }) {
 function Sidebar({ onTimerToggle, isRunning, darkMode, onToggleDark, view, onSetView, T }) {
   return (
     <div style={{ backgroundColor:T.panelBg,width:"56px",minWidth:"56px",padding:"16px 8px",borderRadius:"30px",display:"flex",flexDirection:"column",alignItems:"center",gap:"8px",flexShrink:0 }}>
-      {/* Top: functional icons */}
+      {/* Home */}
+      <SidebarIcon onClick={()=>onSetView("home")} title="Home" active={view==="home"} T={T}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+      </SidebarIcon>
+
+      {/* Timer */}
       <SidebarIcon onClick={onTimerToggle} title="Timer" active={isRunning} T={T}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       </SidebarIcon>
+
+      {/* Proof Album — pure SVG camera, no background box */}
       <SidebarIcon onClick={()=>onSetView(view==="album"?"roadmap":"album")} title="Proof Album" active={view==="album"} T={T}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
       </SidebarIcon>
 
-      {/* Spacer pushes theme toggle to bottom */}
+      {/* Spacer */}
       <div style={{ flex:1 }} />
 
-      {/* Bottom: light/dark mode toggle */}
+      {/* Light/dark toggle */}
       <SidebarIcon onClick={onToggleDark} title={darkMode?"Light Mode":"Dark Mode"} T={T}>
         {darkMode
           ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -324,11 +465,13 @@ function Sidebar({ onTimerToggle, isRunning, darkMode, onToggleDark, view, onSet
 }
 
 // ── Nav ───────────────────────────────────────────────────────────────────────
+const MAX_TABS = 10;
+
 function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, onRenameTab, streak, notifications, onClearNotifs, T }) {
   const [pendingDelete, setPendingDelete] = useState(null);
   const [bellOpen, setBellOpen] = useState(false);
-  const [contextMenu, setContextMenu] = useState(null); // {x, y, tabIndex}
-  const [renamingTab, setRenamingTab] = useState(null); // tabIndex
+  const [contextMenu, setContextMenu] = useState(null);
+  const [renamingTab, setRenamingTab] = useState(null);
   const [renameVal, setRenameVal] = useState("");
   const bellRef = useRef(null);
 
@@ -350,7 +493,7 @@ function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, onRenameTab, 
         />
       )}
 
-      {/* 1. TOP UTILITY GROUP (Right Edge) */}
+      {/* TOP UTILITY GROUP */}
       <div style={{ 
         position: "absolute",
         top: "4px", 
@@ -381,145 +524,78 @@ function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, onRenameTab, 
         </div>
       </div>
 
-      {/* 2. TABS ROW + PLUS BUTTON */}
+      {/* TABS ROW + PLUS BUTTON */}
       <div style={{ display: "flex", alignItems: "flex-end", overflowX: "auto", scrollbarWidth: "none", marginTop: "8px" }}>
         {tabs.map((tab, i) => (
-  <div key={tab.id} style={{ position:"relative", display:"inline-flex", marginRight:"2px" }}>
-    {renamingTab === i ? (
-      // ── Inline rename input ──
-      <input
-        autoFocus
-        value={renameVal}
-        onChange={e => setRenameVal(e.target.value)}
-        onKeyDown={e => {
-          if (e.key === "Enter") {
-            onRenameTab(i, renameVal);
-            setRenamingTab(null);
-          }
-          if (e.key === "Escape") setRenamingTab(null);
-        }}
-        onBlur={() => {
-          if (renameVal.trim()) onRenameTab(i, renameVal);
-          setRenamingTab(null);
-        }}
-        style={{
-          width:"120px", padding:"8px 10px",
-          borderRadius:"10px 10px 0 0",
-          border:`2px solid #ffbf6e`,
-          background:T.cardBg, color:T.text,
-          fontSize:"13px", fontFamily:"inherit",
-          outline:"none",
-        }}
-      />
-    ) : (
-      <button
-        style={{
-          backgroundColor: activeTab===i ? T.cardBg : T.panelBg,
-          padding:"8px 28px 8px 12px",
-          borderRadius:"10px 10px 0 0",
-          color: activeTab===i ? T.text : T.dimText,
-          cursor:"pointer", fontSize:"13px",
-          fontWeight: activeTab===i ? "600" : "400",
-          border:"none", fontFamily:"inherit",
-          maxWidth:"140px", minWidth:"60px",
-          // ── Truncate long names ──
-          whiteSpace:"nowrap",
-          overflow:"hidden",
-          textOverflow:"ellipsis",
-          display:"block",
-        }}
-        onClick={() => onTabClick(i)}
-        onContextMenu={e => {
-          e.preventDefault();
-          setContextMenu({ x: e.clientX, y: e.clientY, tabIndex: i });
-        }}
-        title={tab.label}
-      >
-        {tab.label}
-      </button>
-    )}
-    {tabs.length > 1 && renamingTab !== i && (
-      <button
-        onClick={e => { e.stopPropagation(); setPendingDelete(i); }}
-        style={{ position:"absolute", top:"4px", right:"5px", background:"none", border:"none", color:T.mutedText, cursor:"pointer", fontSize:"12px" }}
-      >×</button>
-    )}
-  </div>
-))}
+          <div key={tab.id} style={{ position:"relative", display:"inline-flex", marginRight:"2px" }}>
+            {renamingTab === i ? (
+              <input
+                autoFocus
+                value={renameVal}
+                onChange={e => setRenameVal(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") { onRenameTab(i, renameVal); setRenamingTab(null); }
+                  if (e.key === "Escape") setRenamingTab(null);
+                }}
+                onBlur={() => { if (renameVal.trim()) onRenameTab(i, renameVal); setRenamingTab(null); }}
+                style={{ width:"120px", padding:"8px 10px", borderRadius:"10px 10px 0 0", border:`2px solid #ffbf6e`, background:T.cardBg, color:T.text, fontSize:"13px", fontFamily:"inherit", outline:"none" }}
+              />
+            ) : (
+              <button
+                style={{ backgroundColor: activeTab===i ? T.cardBg : T.panelBg, padding:"8px 28px 8px 12px", borderRadius:"10px 10px 0 0", color: activeTab===i ? T.text : T.dimText, cursor:"pointer", fontSize:"13px", fontWeight: activeTab===i ? "600" : "400", border:"none", fontFamily:"inherit", maxWidth:"140px", minWidth:"60px", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", display:"block" }}
+                onClick={() => onTabClick(i)}
+                onContextMenu={e => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, tabIndex: i }); }}
+                title={tab.label}
+              >
+                {tab.label}
+              </button>
+            )}
+            {tabs.length > 1 && renamingTab !== i && (
+              <button
+                onClick={e => { e.stopPropagation(); setPendingDelete(i); }}
+                style={{ position:"absolute", top:"4px", right:"5px", background:"none", border:"none", color:T.mutedText, cursor:"pointer", fontSize:"12px" }}
+              >×</button>
+            )}
+          </div>
+        ))}
 
-{/* ── Right-click context menu ── */}
-{contextMenu && (
-  <>
-    <div
-      style={{ position:"fixed", inset:0, zIndex:998 }}
-      onClick={() => setContextMenu(null)}
-    />
-    <div style={{
-      position:"fixed",
-      top: contextMenu.y,
-      left: contextMenu.x,
-      zIndex:999,
-      backgroundColor:T.panelBg,
-      border:`1px solid ${T.border}`,
-      borderRadius:"10px",
-      padding:"4px",
-      boxShadow:"0 4px 20px rgba(0,0,0,0.3)",
-      minWidth:"140px",
-    }}>
-      {[
-        { label:"✏️ Rename", action: () => {
-          setRenameVal(tabs[contextMenu.tabIndex]?.label || "");
-          setRenamingTab(contextMenu.tabIndex);
-          setContextMenu(null);
-        }},
-        { label:"❌ Close tab", action: () => {
-          onDeleteTab(contextMenu.tabIndex);
-          setContextMenu(null);
-        }},
-        { label:"🗑️ Delete project", action: () => {
-          setPendingDelete(contextMenu.tabIndex);
-          setContextMenu(null);
-        }},
-      ].map((item, idx) => (
-        <button key={idx} onClick={item.action}
-          style={{
-            display:"block", width:"100%",
-            padding:"8px 14px", border:"none",
-            background:"none", color:T.text,
-            textAlign:"left", cursor:"pointer",
-            fontSize:"13px", fontFamily:"inherit",
-            borderRadius:"7px",
-          }}
-          onMouseEnter={e => e.currentTarget.style.background=T.cardBg}
-          onMouseLeave={e => e.currentTarget.style.background="none"}
-        >
-          {item.label}
-        </button>
-      ))}
-    </div>
-  </>
-)}
+        {/* Right-click context menu */}
+        {contextMenu && (
+          <>
+            <div style={{ position:"fixed", inset:0, zIndex:998 }} onClick={() => setContextMenu(null)} />
+            <div style={{ position:"fixed", top: contextMenu.y, left: contextMenu.x, zIndex:999, backgroundColor:T.panelBg, border:`1px solid ${T.border}`, borderRadius:"10px", padding:"4px", boxShadow:"0 4px 20px rgba(0,0,0,0.3)", minWidth:"160px" }}>
+              {[
+                { label:"Rename", action: () => {
+                  setRenameVal(tabs[contextMenu.tabIndex]?.label || "");
+                  setRenamingTab(contextMenu.tabIndex);
+                  setContextMenu(null);
+                }, icon: (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                )},
+                { label:"Close tab", action: () => { onDeleteTab(contextMenu.tabIndex); setContextMenu(null); }, icon: (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                )},
+                { label:"Delete project", action: () => { setPendingDelete(contextMenu.tabIndex); setContextMenu(null); }, icon: (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                ), danger: true },
+              ].map((item, idx) => (
+                <button key={idx} onClick={item.action}
+                  style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", padding:"8px 14px", border:"none", background:"none", color:item.danger?"#ff4444":T.text, textAlign:"left", cursor:"pointer", fontSize:"13px", fontFamily:"inherit", borderRadius:"7px" }}
+                  onMouseEnter={e => e.currentTarget.style.background=T.cardBg}
+                  onMouseLeave={e => e.currentTarget.style.background="none"}
+                >
+                  {item.icon}
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
-        {/* PLUS BUTTON: Back next to the tabs */}
+        {/* PLUS BUTTON */}
         <button 
           onClick={onAddTab} 
-          style={{ 
-            backgroundColor: "#ffbf6e", 
-            border: "none", 
-            borderRadius: "50%", 
-            width: "24px", 
-            height: "24px", 
-            color: "#0E131C", 
-            fontSize: "16px", 
-            cursor: "pointer", 
-            display: "flex", 
-            alignItems: "center", 
-            justifyContent: "center", 
-            fontWeight: "bold",
-            marginLeft: "8px",
-            marginBottom: "6px", 
-            flexShrink: 0
-          }}
+          style={{ backgroundColor: "#ffbf6e", border: "none", borderRadius: "50%", width: "24px", height: "24px", color: "#0E131C", fontSize: "16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", marginLeft: "8px", marginBottom: "6px", flexShrink: 0 }}
         >
           +
         </button>
@@ -530,19 +606,8 @@ function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, onRenameTab, 
 
 function StreakAnimatedBadge({ frame, size = 28 }) {
   const frames = [frame1, frame2];
-
   return (
-    <img 
-      src={frames[frame]} 
-      alt="streak" 
-      style={{ 
-        width: size, 
-        height: size, 
-        objectFit: "contain", 
-        imageRendering: "pixelated", 
-        flexShrink: 0 
-      }} 
-    />
+    <img src={frames[frame]} alt="streak" style={{ width: size, height: size, objectFit: "contain", imageRendering: "pixelated", flexShrink: 0 }} />
   );
 }
 
@@ -603,41 +668,17 @@ function FileUploadZone({ onAtomizeFile, T }) {
         onDragOver={e => { e.preventDefault(); setDragging(true); }} 
         onDragLeave={() => setDragging(false)}
         onDrop={e => { e.preventDefault(); setDragging(false); processFile(e.dataTransfer.files[0]); }}
-        style={{ 
-          border: `2px dashed ${dragging ? "#ffbf6e" : T.border}`, 
-          borderRadius: "14px", 
-          padding: "20px 16px", 
-          textAlign: "center", 
-          cursor: "pointer", 
-          background: dragging ? `${T.panelBg}88` : "transparent", 
-          transition: "all 0.2s" 
-        }}
+        style={{ border: `2px dashed ${dragging ? "#ffbf6e" : T.border}`, borderRadius: "14px", padding: "20px 16px", textAlign: "center", cursor: "pointer", background: dragging ? `${T.panelBg}88` : "transparent", transition: "all 0.2s" }}
         onClick={() => fileRef.current?.click()}
       >
         <input type="file" ref={fileRef} hidden onChange={e => processFile(e.target.files[0])} accept=".pdf,.txt,.docx,.png,.jpg,.jpeg" />
-        
-        {/* REPLACED SVG WITH YOUR IMPORTED IMAGE */}
         <div style={{ marginBottom: "10px", display: "flex", justifyContent: "center" }}>
-          <img 
-            src={bufferload} 
-            alt="Upload Icon" 
-            style={{ 
-              width: "100px", 
-              height: "100px", 
-              objectFit: "contain",
-              opacity: dragging ? 1 : 0.7,
-              animation: dragging ? "spin 2s linear infinite" : "none"
-            }} 
-          />
+          <img src={bufferload} alt="Upload Icon" style={{ width: "100px", height: "100px", objectFit: "contain", opacity: dragging ? 1 : 0.7, animation: dragging ? "spin 2s linear infinite" : "none" }} />
         </div>
-
         <div style={{ fontSize: "14px", fontWeight: "600", color: T.text }}>
           {loading ? "Analyzing..." : "Drop a file or click to upload"}
         </div>
-        <div style={{ fontSize: "11px", color: T.mutedText, marginTop: "4px" }}>
-          PDF, TXT, Images or Docs supported
-        </div>
-        
+        <div style={{ fontSize: "11px", color: T.mutedText, marginTop: "4px" }}>PDF, TXT, Images or Docs supported</div>
         {loading && (
           <div style={{ marginTop: "12px" }}>
             <div style={{ height: "4px", background: T.trackBg, borderRadius: "2px", overflow: "hidden", marginBottom: "6px" }}>
@@ -655,26 +696,18 @@ function FileUploadZone({ onAtomizeFile, T }) {
 // ── Countdown Timer ───────────────────────────────────────────────────────────
 function CountdownTimer({ timer, T }) {
   const { remaining, isRunning, mode, setMode, start, pause, reset, setDuration, formatTime, pct, totalSeconds } = timer;
-
   const [editing, setEditing] = useState(false);
   const [editVal, setEditVal] = useState("");
   const inputRef = useRef(null);
 
   const openEdit = () => {
     if (isRunning) return;
-    const h = Math.floor(totalSeconds/3600);
-    const m = Math.floor((totalSeconds%3600)/60);
-    const s = totalSeconds%60;
-    const str = h > 0
-      ? `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`
-      : `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-    setEditVal(str);
-    setEditing(true);
+    const h = Math.floor(totalSeconds/3600), m = Math.floor((totalSeconds%3600)/60), s = totalSeconds%60;
+    const str = h > 0 ? `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}` : `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+    setEditVal(str); setEditing(true);
   };
 
-  useEffect(() => {
-    if (editing && inputRef.current) { inputRef.current.focus(); inputRef.current.select(); }
-  }, [editing]);
+  useEffect(() => { if (editing && inputRef.current) { inputRef.current.focus(); inputRef.current.select(); } }, [editing]);
 
   const applyEdit = () => {
     const parts = editVal.trim().split(":").map(p => parseInt(p) || 0);
@@ -702,7 +735,6 @@ function CountdownTimer({ timer, T }) {
         ))}
       </div>
       <div style={{ fontSize:"10px",color:T.dimText,letterSpacing:"1.5px",textTransform:"uppercase",marginBottom:"10px" }}>{isBreak?"Break Timer":"Flowtime Timer"}</div>
-
       <div style={{ position:"relative",width:"110px",height:"110px",marginBottom:"6px" }}>
         <svg width="110" height="110" style={{ position:"absolute",top:0,left:0 }}>
           <circle cx="55" cy="55" r={r} fill="none" stroke={T.trackBg} strokeWidth="6" />
@@ -710,14 +742,8 @@ function CountdownTimer({ timer, T }) {
         </svg>
         <div style={{ position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center" }}>
           {editing ? (
-            <input
-              ref={inputRef}
-              value={editVal}
-              onChange={e => setEditVal(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === "Enter") applyEdit();
-                if (e.key === "Escape") setEditing(false);
-              }}
+            <input ref={inputRef} value={editVal} onChange={e => setEditVal(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") applyEdit(); if (e.key === "Escape") setEditing(false); }}
               style={{ width:"84px",background:"transparent",border:"none",borderBottom:`2px solid ${accent}`,color:accent,fontSize:"18px",fontWeight:"bold",textAlign:"center",fontFamily:"inherit",outline:"none",letterSpacing:"2px" }}
               placeholder="25:00"
             />
@@ -728,11 +754,9 @@ function CountdownTimer({ timer, T }) {
           )}
         </div>
       </div>
-
       <div style={{ fontSize:"11px",color:T.mutedText,marginBottom:"12px",minHeight:"16px",textAlign:"center" }}>
         {editing ? "type MM:SS or HH:MM:SS · Enter to save · Esc to cancel" : !isRunning ? "click time to edit" : ""}
       </div>
-
       <div style={{ display:"flex",gap:"6px" }}>
         <button onClick={start} disabled={isRunning||remaining===0} style={{ padding:"6px 14px",borderRadius:"8px",border:"none",background:isRunning||remaining===0?T.trackBg:"#7effd4",color:isRunning||remaining===0?T.mutedText:"#0E131C",fontWeight:"bold",cursor:isRunning||remaining===0?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"12px" }}>▶ Start</button>
         <button onClick={pause} disabled={!isRunning} style={{ padding:"6px 14px",borderRadius:"8px",border:"none",background:!isRunning?T.trackBg:"#ffbf6e",color:!isRunning?T.mutedText:"#0E131C",fontWeight:"bold",cursor:!isRunning?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"12px" }}>⏸ Pause</button>
@@ -747,16 +771,10 @@ function Scoreboard({ xp, streak, timer, totalNodes, T }) {
   const maxXp=(totalNodes||5)*150, pct=(xp/maxXp)*100;
   const msg=streak>0?`You are on a ${streak}-day streak!`:"No streak yet!";
   const sub=streak>=7?"Unstoppable! 🔥":streak>=3?"Keep it up!":streak>=1?"Good start!":"Complete a task to start!";
-
   const [frame, setFrame] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setFrame(f => (f + 1) % 2), 500);
-    return () => clearInterval(id);
-  }, []);
-
+  useEffect(() => { const id = setInterval(() => setFrame(f => (f + 1) % 2), 500); return () => clearInterval(id); }, []);
   return (
     <div className={T.scrollbar} style={{ flex:1,backgroundColor:T.panelBg,borderRadius:"20px",padding:"20px 16px",display:"flex",flexDirection:"column",alignItems:"center",overflowY:"auto" }}>
-      {/* Animated 2-frame streak icon */}
       <div style={{ marginBottom:"6px",lineHeight:1 }}>
         <StreakAnimatedBadge frame={frame} size={200} />
       </div>
@@ -777,21 +795,15 @@ function Scoreboard({ xp, streak, timer, totalNodes, T }) {
 function SubtaskRow({ sub, isNextUp, isLocked, onComplete, T }) {
   const fileInputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
-
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file||!file.type.startsWith("image/")) return;
     setUploading(true);
     const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result;
-      setTimeout(()=>{ setUploading(false); onComplete(dataUrl); }, 400);
-    };
+    reader.onload = () => { setTimeout(()=>{ setUploading(false); onComplete(reader.result); }, 400); };
     reader.readAsDataURL(file);
   };
-
   const trigger = () => { if (!isNextUp||sub.is_completed) return; fileInputRef.current?.click(); };
-
   return (
     <div style={{ height:`${ROW_H}px`,display:"flex",alignItems:"center",gap:"8px",opacity:isLocked?0.35:1,transition:"opacity 0.3s" }}
       title={isLocked?"Complete previous task first":isNextUp?"Upload proof to complete":""}>
@@ -807,8 +819,8 @@ function SubtaskRow({ sub, isNextUp, isLocked, onComplete, T }) {
       {isNextUp&&!sub.is_completed&&(
         <button onClick={trigger} title="Attach proof screenshot" style={{ marginLeft:"auto",background:"none",border:"none",cursor:"pointer",padding:"4px",display:"flex",alignItems:"center",flexShrink:0 }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffbf6e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{transform:"rotate(45deg)"}}>
-  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-</svg>
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+          </svg>
         </button>
       )}
       {sub.is_completed&&sub.proofUrl&&<img src={sub.proofUrl} alt="proof" style={{ width:"20px",height:"20px",borderRadius:"4px",objectFit:"cover",border:"1px solid #4caf7d",flexShrink:0,marginLeft:"auto" }}/>}
@@ -818,12 +830,11 @@ function SubtaskRow({ sub, isNextUp, isLocked, onComplete, T }) {
 
 // ── Phase Block ───────────────────────────────────────────────────────────────
 function PhaseBlock({ node, isPhaseActive, onCompleteSubtask, T }) {
-  const subtasks   = node.subtasks||[];
-  const svgH       = subtasks.length * ROW_H;
-  const doneSubs   = subtasks.filter(s=>s.is_completed).length;
+  const subtasks = node.subtasks||[];
+  const svgH     = subtasks.length * ROW_H;
+  const doneSubs = subtasks.filter(s=>s.is_completed).length;
   const lineColor  = T.completedLine;
   const trackColor = T.isDark ? "#2a2f45" : T.border;
-
   return (
     <div style={{ marginBottom:"24px" }}>
       <div style={{ display:"flex",alignItems:"center",gap:"12px",marginBottom:"4px" }}>
@@ -889,7 +900,8 @@ export default function Breadcrumber() {
     return saved !== null ? saved === "true" : true;
   });
   const [notifications, setNotifications] = useState([]);
-  const [view, setView]           = useState("roadmap");
+  const [view, setView] = useState("roadmap");
+  const [showMaxTabsError, setShowMaxTabsError] = useState(false);
 
   const { streak, updateStreak } = useStreak();
   const timer        = useCountdownTimer();
@@ -903,10 +915,7 @@ export default function Breadcrumber() {
 
   const setTitle = (v) => {
     updateProject(currentTabId, p => ({ ...p, title: v }));
-    setTabs(prev => prev.map(t => t.id === currentTabId
-      ? { ...t, label: v.trim() || `Project ${currentTabId}` }
-      : t
-    ));
+    setTabs(prev => prev.map(t => t.id === currentTabId ? { ...t, label: v.trim() || `Project ${currentTabId}` } : t));
   };
   const setDesc     = v => updateProject(currentTabId, p=>({...p,desc:v}));
   const setCategory = v => updateProject(currentTabId, p=>({...p,category:v}));
@@ -941,10 +950,7 @@ export default function Breadcrumber() {
   const handleAtomize = async (projectName, cat) => {
     try {
       const data = await atomizeProject(projectName, cat);
-      updateProject(currentTabId, p => ({
-        ...p, nodes: data.nodes, activeNode: 0,
-        xp: 0, completedNodes: [], hasRoadmap: true, proofAlbum: {}
-      }));
+      updateProject(currentTabId, p => ({ ...p, nodes: data.nodes, activeNode: 0, xp: 0, completedNodes: [], hasRoadmap: true, proofAlbum: {} }));
     } catch (err) {
       console.error("Atomize failed:", err);
       alert(`Atomize failed: ${err.message}`);
@@ -954,22 +960,15 @@ export default function Breadcrumber() {
   const handleAtomizeFile = (parsed) => {
     if (!parsed?.nodes?.length) return;
     const newTitle = parsed.project_name || "";
-    if (newTitle) {
-      setTabs(prev => prev.map(t => t.id === currentTabId ? {...t, label: newTitle} : t));
-    }
-    updateProject(currentTabId, p => ({
-      ...p,
-      nodes:        parsed.nodes,
-      activeNode:   0,
-      xp:           0,
-      completedNodes: [],
-      hasRoadmap:   true,
-      proofAlbum:   {},
-      title:        newTitle || p.title,
-    }));
+    if (newTitle) setTabs(prev => prev.map(t => t.id === currentTabId ? {...t, label: newTitle} : t));
+    updateProject(currentTabId, p => ({ ...p, nodes: parsed.nodes, activeNode: 0, xp: 0, completedNodes: [], hasRoadmap: true, proofAlbum: {}, title: newTitle || p.title }));
   };
 
   const handleAddTab = () => {
+    if (tabs.length >= MAX_TABS) {
+      setShowMaxTabsError(true);
+      return;
+    }
     tabCounter.current += 1;
     const newId = tabCounter.current;
     setTabs(prev=>[...prev,{id:newId,label:`Project ${newId}`}]);
@@ -986,9 +985,21 @@ export default function Breadcrumber() {
   };
 
   const handleRenameTab = (i, newLabel) => {
-  if (!newLabel.trim()) return;
-  setTabs(prev => prev.map((t, idx) => idx === i ? { ...t, label: newLabel.trim() } : t));
-};
+    if (!newLabel.trim()) return;
+    setTabs(prev => prev.map((t, idx) => idx === i ? { ...t, label: newLabel.trim() } : t));
+  };
+
+  // When switching to a project tab from home, switch view to roadmap
+  const handleTabClick = (i) => {
+    setActiveTab(i);
+    if (view === "home") setView("roadmap");
+  };
+
+  const handleSetView = (v) => {
+    setView(v);
+  };
+
+  const isHome = view === "home";
 
   return (
     <div style={{ backgroundColor:T.bg,padding:"10px",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",height:"100vh",margin:0,boxSizing:"border-box",overflow:"hidden" }}>
@@ -1012,38 +1023,48 @@ export default function Breadcrumber() {
       `}</style>
 
       {timer.isDone && <TimerBreakPopup mode={timer.mode} onOkay={timer.dismissDone} T={T} />}
+      {showMaxTabsError && <MaxTabsPopup onClose={() => setShowMaxTabsError(false)} T={T} />}
 
       <div style={{ display:"flex",gap:"16px",padding:"16px",height:"100%",boxSizing:"border-box" }}>
-        <Sidebar onTimerToggle={()=>timer.isRunning?timer.pause():timer.start()} isRunning={timer.isRunning} darkMode={darkMode} onToggleDark={() => {
-          setDarkMode(d => {
-            localStorage.setItem("darkMode", String(!d));
-            return !d;
-          });
-        }} view={view} onSetView={setView} T={T}/>
+        <Sidebar
+          onTimerToggle={()=>timer.isRunning?timer.pause():timer.start()}
+          isRunning={timer.isRunning}
+          darkMode={darkMode}
+          onToggleDark={() => { setDarkMode(d => { localStorage.setItem("darkMode", String(!d)); return !d; }); }}
+          view={view}
+          onSetView={handleSetView}
+          T={T}
+        />
         <div style={{ flex:1,display:"flex",flexDirection:"column",minWidth:0 }}>
           <Nav
-  tabs={tabs}
-  activeTab={activeTab}
-  onTabClick={setActiveTab}
-  onAddTab={handleAddTab}
-  onDeleteTab={handleDeleteTab}
-  onRenameTab={handleRenameTab}  // ← add this
-  streak={streak}
-  notifications={notifications}
-  onClearNotifs={() => setNotifications([])}
-  T={T}
-/>
+            tabs={tabs}
+            activeTab={activeTab}
+            onTabClick={handleTabClick}
+            onAddTab={handleAddTab}
+            onDeleteTab={handleDeleteTab}
+            onRenameTab={handleRenameTab}
+            streak={streak}
+            notifications={notifications}
+            onClearNotifs={() => setNotifications([])}
+            T={T}
+          />
           <div style={{ backgroundColor:T.cardBg,flex:1,borderRadius:"0 12px 12px 12px",overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0 }}>
-            <TitleArea onAtomize={handleAtomize} title={project.title} setTitle={setTitle} desc={project.desc} setDesc={setDesc} category={project.category} setCategory={setCategory} T={T}/>
-            <div style={{ display:"flex",gap:"12px",flex:1,padding:"12px 16px 16px",minHeight:0 }}>
-              {view==="album"
-                ? <div className={T.scrollbar} style={{ flex:"0 0 58%",backgroundColor:T.panelBg,borderRadius:"20px",overflow:"hidden",display:"flex",flexDirection:"column" }}>
-                    <AlbumView proofAlbum={project.proofAlbum||{}} nodes={project.nodes||[]} T={T}/>
-                  </div>
-                : <Roadmap nodes={project.nodes} activeNode={project.activeNode} onCompleteSubtask={handleCompleteSubtask} onAtomizeFile={handleAtomizeFile} hasRoadmap={project.hasRoadmap} T={T}/>
-              }
-              <Scoreboard xp={project.xp} streak={streak} timer={timer} totalNodes={project.nodes.length} T={T}/>
-            </div>
+            {isHome ? (
+              <HomeView tabs={tabs} tabData={tabData} onTabClick={handleTabClick} onAddTab={handleAddTab} T={T} />
+            ) : (
+              <>
+                <TitleArea onAtomize={handleAtomize} title={project.title} setTitle={setTitle} desc={project.desc} setDesc={setDesc} category={project.category} setCategory={setCategory} T={T}/>
+                <div style={{ display:"flex",gap:"12px",flex:1,padding:"12px 16px 16px",minHeight:0 }}>
+                  {view==="album"
+                    ? <div className={T.scrollbar} style={{ flex:"0 0 58%",backgroundColor:T.panelBg,borderRadius:"20px",overflow:"hidden",display:"flex",flexDirection:"column" }}>
+                        <AlbumView proofAlbum={project.proofAlbum||{}} nodes={project.nodes||[]} T={T}/>
+                      </div>
+                    : <Roadmap nodes={project.nodes} activeNode={project.activeNode} onCompleteSubtask={handleCompleteSubtask} onAtomizeFile={handleAtomizeFile} hasRoadmap={project.hasRoadmap} T={T}/>
+                  }
+                  <Scoreboard xp={project.xp} streak={streak} timer={timer} totalNodes={project.nodes.length} T={T}/>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
