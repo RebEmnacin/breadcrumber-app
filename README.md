@@ -1,4 +1,4 @@
-# 🍞 breadcrumber
+<img src="frontend/src/assets/breadcrumber-banner.png" alt="breadcrumber" width="100%">
 <img src="frontend/src/assets/breadcat-chomp.gif" alt="bread cat" align="right" width="150">
 
 **breadcrumbing** _<sup>verb.</sup>_\
