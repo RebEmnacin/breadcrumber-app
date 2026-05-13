@@ -60,27 +60,8 @@ Updates will be continuously be released and bugs will be fixed, even after the 
 We look forward to working on more projects.<br>
 ~ Team F.I.S.H 🐟
 
-<table>
-  <tr>
-    <td align="center">
-      <a href="https://github.com/rhonacailao">
-        <img src="https://github.com/rhonacailao.png" width="80" style="border-radius:50%"/><br/>
-        <sub><b>rhonacailao</b></sub>
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/John-Patrick-Narvasa">
-        <img src="https://github.com/John-Patrick-Narvasa.png" width="80" style="border-radius:50%"/><br/>
-        <sub><b>John-Patrick-Narvasa</b></sub>
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/bearbau">
-        <img src="https://github.com/bearbau.png" width="80" style="border-radius:50%"/><br/>
-        <sub><b>bearbau</b></sub>
-      </a>
-    </td>
-  </tr>
-</table>
+<a href="https://github.com/rhonacailao"><img src="https://github.com/rhonacailao.png" width="80" height="80" style="border-radius:50%;margin-right:8px"/></a>
+<a href="https://github.com/John-Patrick-Narvasa"><img src="https://github.com/John-Patrick-Narvasa.png" width="80" height="80" style="border-radius:50%;margin-right:8px"/></a>
+<a href="https://github.com/bearbau"><img src="https://github.com/bearbau.png" width="80" height="80" style="border-radius:50%"/></a>
 
 <img src="frontend/src/assets/buffer-loading.png" alt="bread cat fishing" align="right" width="150">
