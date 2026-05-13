@@ -4,7 +4,7 @@ import { atomizeProject, analyzeFile } from "./hooks/useApi";
 import frame1 from "./assets/gif1-frame1.png";
 import frame2 from "./assets/gif1-frame2.png";
 import icon from "./assets/favicon.png";
-import bufferload from "./assets/buffer-loading.png"
+import bufferload from "./assets/buffer-loading.png";
 
 const blankProject = () => ({
   nodes: [], activeNode: 0, xp: 0, completedNodes: [],
@@ -77,32 +77,30 @@ const lightTheme = {
 };
 const ROW_H = 44;
 
-// ── Animated GIF streaks icon ──────────────────────────────────────
-import streakFrame1 from "./assets/gif1-frame1.png";
-import streakFrame2 from "./assets/gif1-frame2.png";
-function StreakIcon({ size = 32 }) {
-  const [frame, setFrame] = useState(0);
-  const frames = StreakIcon._frames || null;
-
-  useEffect(() => {
-    if (!frames) return;
-    const id = setInterval(() => setFrame(f => (f + 1) % 2), 500);
-    return () => clearInterval(id);
-  }, [frames]);
-
-  if (frames) {
-    return (
-      <img
-        src={frames[frame]}
-        alt="streak"
-        style={{ width: size, height: size, objectFit: "contain", imageRendering: "pixelated" }}
-      />
-    );
-  }
-
+// ── Streak animated badge ─────────────────────────────────────────────────────
+function StreakAnimatedBadge({ frame, size = 28 }) {
+  const frames = [frame1, frame2];
   return (
- StreakIcon._frames = [f1, f2]);
-  
+    <img src={frames[frame]} alt="streak" style={{ width: size, height: size, objectFit: "contain", imageRendering: "pixelated", flexShrink: 0 }} />
+  );
+}
+
+// ── Hover-pop button — scales up on hover, like "Start a New Project" ─────────
+// Use className="pop-btn" on any button, or wrap with this component.
+function PopBtn({ onClick, style, children, disabled, title, className, onMouseEnter, onMouseLeave }) {
+  return (
+    <button
+      disabled={disabled}
+      title={title}
+      onClick={onClick}
+      className={`pop-btn${className ? " " + className : ""}`}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      style={style}
+    >
+      {children}
+    </button>
+  );
 }
 
 // ── Timer-done popup ──────────────────────────────────────────────────────────
@@ -116,10 +114,9 @@ function TimerBreakPopup({ mode, onOkay, T }) {
         <div style={{ fontSize:"14px",color:T.subText,lineHeight:1.7,marginBottom:"28px",whiteSpace:"pre-line" }}>
           {isWork?"Step away from the screen.\nStretch, grab water, rest your eyes.\nYou've earned it. 🌿":"Feeling refreshed? Let's get back to it.\nYou're on a roll! 🔥"}
         </div>
-        <button onClick={onOkay} style={{ padding:"12px 40px",borderRadius:"50px",border:"none",background:isWork?"#ffbf6e":"#4caf7d",color:"#0E131C",fontWeight:"800",fontSize:"16px",cursor:"pointer",fontFamily:"inherit",boxShadow:`0 4px 20px ${isWork?"#ffbf6e66":"#4caf7d66"}`,transition:"transform 0.15s" }}
-          onMouseEnter={e=>e.currentTarget.style.transform="scale(1.05)"} onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}>
+        <PopBtn onClick={onOkay} style={{ padding:"12px 40px",borderRadius:"50px",border:"none",background:isWork?"#ffbf6e":"#4caf7d",color:"#0E131C",fontWeight:"800",fontSize:"16px",cursor:"pointer",fontFamily:"inherit",boxShadow:`0 4px 20px ${isWork?"#ffbf6e66":"#4caf7d66"}` }}>
           Okay!
-        </button>
+        </PopBtn>
       </div>
     </div>
   );
@@ -133,37 +130,34 @@ function DeleteConfirmModal({ projectLabel, onConfirm, onCancel, T }) {
         <div style={{ fontSize:"22px",marginBottom:"10px",textAlign:"center" }}>🗑️</div>
         <div style={{ fontSize:"16px",fontWeight:"700",color:T.text,marginBottom:"8px",textAlign:"center" }}>Delete project?</div>
         <div style={{ fontSize:"13px",color:T.subText,marginBottom:"24px",lineHeight:1.6,textAlign:"center" }}>
-          Are you sure you want to delete <strong style={{ color:"#ffbf6e" }}>"{projectLabel}"</strong>?<br/>This cannot be undone.
+          Are you sure you want to permanently delete <strong style={{ color:"#ffbf6e" }}>"{projectLabel}"</strong>?<br/>This cannot be undone.
         </div>
         <div style={{ display:"flex",gap:"10px",justifyContent:"center" }}>
-          <button onClick={onCancel} style={{ padding:"8px 24px",borderRadius:"8px",border:`1px solid ${T.border}`,background:"transparent",color:T.subText,fontFamily:"inherit",fontSize:"13px",cursor:"pointer",fontWeight:"600" }}>Cancel</button>
-          <button onClick={onConfirm} style={{ padding:"8px 24px",borderRadius:"8px",border:"none",background:"#ff4444",color:"#fff",fontFamily:"inherit",fontSize:"13px",cursor:"pointer",fontWeight:"700" }}>Delete</button>
+          <PopBtn onClick={onCancel} style={{ padding:"8px 24px",borderRadius:"8px",border:`1px solid ${T.border}`,background:"transparent",color:T.subText,fontFamily:"inherit",fontSize:"13px",cursor:"pointer",fontWeight:"600" }}>Cancel</PopBtn>
+          <PopBtn onClick={onConfirm} style={{ padding:"8px 24px",borderRadius:"8px",border:"none",background:"#ff4444",color:"#fff",fontFamily:"inherit",fontSize:"13px",cursor:"pointer",fontWeight:"700" }}>Delete</PopBtn>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Max Tabs Error Popup ───────────────────────────────────────────────────────
+// ── Max Tabs Error Popup ──────────────────────────────────────────────────────
 function MaxTabsPopup({ onClose, T }) {
   return (
     <div style={{ position:"fixed",inset:0,zIndex:9500,backgroundColor:"rgba(0,0,0,0.6)",display:"flex",alignItems:"center",justifyContent:"center",animation:"fadeInOverlay 0.2s ease" }}>
       <div style={{ backgroundColor:T.panelBg,border:"2px solid #ff4444",borderRadius:"20px",padding:"32px 40px",maxWidth:"340px",width:"90%",textAlign:"center",boxShadow:"0 20px 60px rgba(255,68,68,0.25)",animation:"popIn 0.3s cubic-bezier(0.34,1.56,0.64,1)" }}>
         <div style={{ marginBottom:"14px",display:"flex",justifyContent:"center" }}>
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ff4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="8" x2="12" y2="12"/>
-            <line x1="12" y1="16" x2="12.01" y2="16"/>
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
         </div>
         <div style={{ fontSize:"18px",fontWeight:"800",color:T.text,marginBottom:"8px" }}>Maximum tabs reached</div>
         <div style={{ fontSize:"13px",color:T.subText,lineHeight:1.6,marginBottom:"24px" }}>
           You can have up to <strong style={{ color:"#ffbf6e" }}>10 tabs</strong> open at once.<br/>Close a tab to open a new one.
         </div>
-        <button onClick={onClose} style={{ padding:"10px 32px",borderRadius:"50px",border:"none",background:"#ff4444",color:"#fff",fontWeight:"700",fontSize:"14px",cursor:"pointer",fontFamily:"inherit" }}
-          onMouseEnter={e=>e.currentTarget.style.opacity="0.85"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+        <PopBtn onClick={onClose} style={{ padding:"10px 32px",borderRadius:"50px",border:"none",background:"#ff4444",color:"#fff",fontWeight:"700",fontSize:"14px",cursor:"pointer",fontFamily:"inherit" }}>
           Got it
-        </button>
+        </PopBtn>
       </div>
     </div>
   );
@@ -175,7 +169,7 @@ function BellMenu({ notifications, onClear, T }) {
     <div style={{ position:"absolute",top:"calc(100% + 8px)",right:0,zIndex:500,backgroundColor:T.panelBg,border:`1px solid ${T.border}`,borderRadius:"14px",padding:"12px",minWidth:"280px",boxShadow:"0 8px 32px rgba(0,0,0,0.35)" }}>
       <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"10px" }}>
         <span style={{ fontSize:"12px",fontWeight:"700",color:T.subText,letterSpacing:"1px",textTransform:"uppercase" }}>Notifications</span>
-        {notifications.length > 0 && <button onClick={onClear} style={{ background:"none",border:"none",color:"#ffbf6e",fontSize:"11px",cursor:"pointer",fontFamily:"inherit",fontWeight:"600" }}>Clear all</button>}
+        {notifications.length > 0 && <PopBtn onClick={onClear} style={{ background:"none",border:"none",color:"#ffbf6e",fontSize:"11px",cursor:"pointer",fontFamily:"inherit",fontWeight:"600" }}>Clear all</PopBtn>}
       </div>
       {notifications.length === 0
         ? <div style={{ fontSize:"13px",color:T.mutedText,padding:"12px 0",textAlign:"left" }}>No notifications yet</div>
@@ -192,11 +186,10 @@ function BellMenu({ notifications, onClear, T }) {
   );
 }
 
-// ── Album View — Google Drive-style folder gallery ────────────────────────────
+// ── Album View ────────────────────────────────────────────────────────────────
 function AlbumView({ proofAlbum, nodes, T }) {
   const [selected, setSelected] = useState(null);
   const [openFolders, setOpenFolders] = useState({});
-
   const toggleFolder = (id) => setOpenFolders(prev => ({ ...prev, [id]: !prev[id] }));
 
   const folders = (nodes || []).map(node => {
@@ -207,9 +200,7 @@ function AlbumView({ proofAlbum, nodes, T }) {
     return { nodeId: node.node_id, title: node.title, proofs: subtaskProofs };
   }).filter(f => f.proofs.length > 0);
 
-  const matchedSubtaskIds = new Set(
-    (nodes || []).flatMap(n => (n.subtasks || []).map(s => s.subtask_id))
-  );
+  const matchedSubtaskIds = new Set((nodes || []).flatMap(n => (n.subtasks || []).map(s => s.subtask_id)));
   const unmatchedEntries = Object.entries(proofAlbum).filter(([id]) => !matchedSubtaskIds.has(id));
   if (unmatchedEntries.length > 0) {
     const unmatchedProofs = unmatchedEntries.flatMap(([, proofs]) => proofs);
@@ -220,13 +211,10 @@ function AlbumView({ proofAlbum, nodes, T }) {
 
   return (
     <div style={{ height:"100%",display:"flex",flexDirection:"column",overflow:"hidden" }}>
-      {/* Header */}
       <div style={{ padding:"18px 20px 12px",borderBottom:`1px solid ${T.border}`,flexShrink:0 }}>
         <div style={{ display:"flex",alignItems:"center",gap:"10px" }}>
-          {/* SVG icon with no gradient background */}
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ffbf6e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-            <circle cx="12" cy="13" r="4"/>
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
           </svg>
           <div>
             <div style={{ fontSize:"15px",fontWeight:"700",color:T.text,lineHeight:1 }}>Proof Album</div>
@@ -235,7 +223,6 @@ function AlbumView({ proofAlbum, nodes, T }) {
         </div>
       </div>
 
-      {/* Folder grid body */}
       <div className={T.scrollbar} style={{ flex:1,overflowY:"auto",padding:"16px 20px" }}>
         {totalPhotos === 0 ? (
           <div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100%",gap:"12px",paddingTop:"40px" }}>
@@ -247,14 +234,10 @@ function AlbumView({ proofAlbum, nodes, T }) {
           </div>
         ) : (
           <>
-            {/* 4-per-row folder grid */}
             <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"12px",marginBottom:"20px" }}>
               {folders.map(folder => (
-                <button key={folder.nodeId} onClick={() => toggleFolder(folder.nodeId)}
-                  style={{ background:openFolders[folder.nodeId]?"linear-gradient(135deg,#ffbf6e22,#ff8c4211)":T.inputBg,border:`1.5px solid ${openFolders[folder.nodeId]?"#ffbf6e":T.border}`,borderRadius:"14px",padding:"12px 10px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"6px",transition:"all 0.2s",fontFamily:"inherit" }}
-                  onMouseEnter={e=>{ e.currentTarget.style.borderColor="#ffbf6e"; e.currentTarget.style.transform="translateY(-2px)"; }}
-                  onMouseLeave={e=>{ e.currentTarget.style.borderColor=openFolders[folder.nodeId]?"#ffbf6e":T.border; e.currentTarget.style.transform="translateY(0)"; }}>
-                  {/* Folder icon */}
+                <PopBtn key={folder.nodeId} onClick={() => toggleFolder(folder.nodeId)}
+                  style={{ background:openFolders[folder.nodeId]?"linear-gradient(135deg,#ffbf6e22,#ff8c4211)":T.inputBg,border:`1.5px solid ${openFolders[folder.nodeId]?"#ffbf6e":T.border}`,borderRadius:"14px",padding:"12px 10px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"6px",fontFamily:"inherit",width:"100%" }}>
                   <div style={{ position:"relative" }}>
                     <svg width="38" height="32" viewBox="0 0 38 32" fill="none">
                       <path d="M2 8 Q2 6 4 6 L14 6 L16 4 L34 4 Q36 4 36 6 L36 28 Q36 30 34 30 L4 30 Q2 30 2 28 Z" fill={openFolders[folder.nodeId]?"#ffbf6e":"#c8a060"} opacity="0.85"/>
@@ -264,11 +247,10 @@ function AlbumView({ proofAlbum, nodes, T }) {
                   </div>
                   <span style={{ fontSize:"10px",fontWeight:"600",color:T.text,textAlign:"center",lineHeight:1.3,width:"100%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{folder.title}</span>
                   <span style={{ fontSize:"9px",color:T.mutedText }}>{openFolders[folder.nodeId]?"▲ close":"▼ open"}</span>
-                </button>
+                </PopBtn>
               ))}
             </div>
 
-            {/* Expanded folder contents */}
             {folders.filter(f => openFolders[f.nodeId]).map(folder => (
               <div key={`open-${folder.nodeId}`} style={{ marginBottom:"20px",background:T.inputBg,borderRadius:"16px",padding:"14px 16px",border:`1px solid ${T.border}` }}>
                 <div style={{ display:"flex",alignItems:"center",gap:"8px",marginBottom:"12px" }}>
@@ -298,7 +280,6 @@ function AlbumView({ proofAlbum, nodes, T }) {
         )}
       </div>
 
-      {/* Lightbox */}
       {selected && (
         <div onClick={()=>setSelected(null)} style={{ position:"fixed",inset:0,zIndex:2000,backgroundColor:"rgba(0,0,0,0.88)",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:"14px",cursor:"zoom-out" }}>
           <img src={selected.dataUrl} alt="proof" style={{ maxWidth:"90vw",maxHeight:"75vh",objectFit:"contain",borderRadius:"12px",boxShadow:"0 20px 60px rgba(0,0,0,0.5)" }}/>
@@ -314,66 +295,72 @@ function AlbumView({ proofAlbum, nodes, T }) {
 }
 
 // ── Homepage View ─────────────────────────────────────────────────────────────
-function HomeView({ tabs, tabData, onTabClick, onAddTab, bufferload, T }) {
-  const totalProjects = tabs.length;
-  const completedProjects = tabs.filter(t => {
-    const p = tabData[t.id];
-    return p && p.nodes.length > 0 && p.nodes.every(n => n.is_completed);
-  }).length;
-  const activeProjects = tabs.filter(t => {
-    const p = tabData[t.id];
-    return p && p.nodes.length > 0 && !p.nodes.every(n => n.is_completed);
-  }).length;
+// allProjects = all projects ever created (tabData values + their IDs)
+// openTabIds = set of IDs currently open as tabs
+function HomeView({ allProjects, openTabIds, onOpenProject, onAddTab, onDeleteProject, T }) {
+  const [pendingDelete, setPendingDelete] = useState(null);
 
-  // Empty state — mascot
-  if (tabs.length === 0) {
+  const projects = allProjects; // array of { id, label, ...projectData }
+  const totalProjects = projects.length;
+  const completedProjects = projects.filter(p => p.nodes.length > 0 && p.nodes.every(n => n.is_completed)).length;
+  const activeProjects = projects.filter(p => p.nodes.length > 0 && !p.nodes.every(n => n.is_completed)).length;
+
+  if (projects.length === 0) {
     return (
       <div style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"20px",padding:"40px" }}>
         <img src={bufferload} alt="No projects yet" style={{ width:"160px",height:"160px",objectFit:"contain",opacity:0.85,animation:"floatBob 3s ease-in-out infinite" }} />
         <div style={{ textAlign:"center" }}>
-          <div style={{ fontSize:"20px",fontWeight:"700",color:T.text,marginBottom:"8px" }}>You have no new project!</div>
-          <div style={{ fontSize:"14px",color:T.subText,lineHeight:1.6 }}>Click <span style={{ color:"#ffbf6e",fontWeight:"700" }}>(+)</span> to start a new project.</div>
+          <div style={{ fontSize:"20px",fontWeight:"700",color:T.text,marginBottom:"8px" }}>No projects yet!</div>
+          <div style={{ fontSize:"14px",color:T.subText,lineHeight:1.6 }}>Click <span style={{ color:"#ffbf6e",fontWeight:"700" }}>(+)</span> to start your first project.</div>
         </div>
-        <button onClick={onAddTab}
-          style={{ marginTop:"8px",display:"flex",alignItems:"center",gap:"8px",padding:"12px 28px",borderRadius:"50px",border:"none",background:"#ffbf6e",color:"#0E131C",fontWeight:"700",fontSize:"14px",cursor:"pointer",fontFamily:"inherit",boxShadow:"0 4px 20px #ffbf6e44",transition:"transform 0.15s" }}
-          onMouseEnter={e=>e.currentTarget.style.transform="scale(1.05)"}
-          onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}>
+        <PopBtn onClick={onAddTab}
+          style={{ marginTop:"8px",display:"flex",alignItems:"center",gap:"8px",padding:"12px 28px",borderRadius:"50px",border:"none",background:"#ffbf6e",color:"#0E131C",fontWeight:"700",fontSize:"14px",cursor:"pointer",fontFamily:"inherit",boxShadow:"0 4px 20px #ffbf6e44" }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Start a New Project
-        </button>
+        </PopBtn>
       </div>
     );
   }
 
   return (
     <div className={T.scrollbar} style={{ flex:1,overflowY:"auto",padding:"28px 32px" }}>
-      {/* Hero */}
-      <div style={{ marginBottom:"32px" }}>
-        <div style={{ fontSize:"28px",fontWeight:"800",color:T.text,marginBottom:"6px",lineHeight:1.2 }}>
-          Welcome to <span style={{ color:"#ffbf6e" }}>Breadcrumber</span> 🍪
-        </div>
-        <div style={{ fontSize:"14px",color:T.subText,lineHeight:1.6,maxWidth:"480px" }}>
-          Break your projects into bite-sized crumbs. Track progress, attach proof, and stay on your streak.
+      {pendingDelete !== null && (
+        <DeleteConfirmModal
+          projectLabel={allProjects.find(p => p.id === pendingDelete)?.label || ""}
+          onConfirm={() => { onDeleteProject(pendingDelete); setPendingDelete(null); }}
+          onCancel={() => setPendingDelete(null)}
+          T={T}
+        />
+      )}
+
+      {/* ── Hero banner — centered, pizzazzy ── */}
+      <div style={{ textAlign:"center",marginBottom:"36px",padding:"32px 24px 24px",background:T.isDark?"linear-gradient(135deg,#1e2235 0%,#2d3450 100%)":"linear-gradient(135deg,#fff8ee 0%,#fdf0d8 100%)",borderRadius:"20px",border:`1px solid ${T.border}`,position:"relative",overflow:"hidden" }}>
+        {/* Decorative dots */}
+        <div style={{ position:"absolute",top:0,left:0,right:0,bottom:0,opacity:0.07,backgroundImage:"radial-gradient(#ffbf6e 1px, transparent 1px)",backgroundSize:"24px 24px",pointerEvents:"none" }} />
+        <div style={{ position:"relative",zIndex:1 }}>
+          <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:"12px",marginBottom:"10px" }}>
+            <img src={icon} alt="Breadcrumber" style={{ width:"40px",height:"40px",objectFit:"contain",filter:"drop-shadow(0 2px 8px #ffbf6e88)",animation:"floatBob 3s ease-in-out infinite" }} />
+            <div style={{ fontSize:"30px",fontWeight:"900",color:T.text,lineHeight:1,letterSpacing:"-0.5px" }}>
+              Welcome to <span style={{ color:"#ffbf6e",textShadow:"0 2px 12px #ffbf6e44" }}>Breadcrumber</span>
+            </div>
+            <img src={icon} alt="" aria-hidden style={{ width:"40px",height:"40px",objectFit:"contain",filter:"drop-shadow(0 2px 8px #ffbf6e88)",opacity:0.5 }} />
+          </div>
+          <div style={{ fontSize:"14px",color:T.subText,lineHeight:1.7,maxWidth:"480px",margin:"0 auto" }}>
+            Break your projects into bite-sized crumbs.<br/>
+            Track progress, attach proof, and stay on your streak.
+          </div>
         </div>
       </div>
 
-      {/* Stats row */}
+      {/* Stats */}
       <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"12px",marginBottom:"32px" }}>
         {[
-          { label:"Total Projects", value:totalProjects, icon:(
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffbf6e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          )},
-          { label:"In Progress", value:activeProjects, icon:(
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4caf7d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          )},
-          { label:"Completed", value:completedProjects, icon:(
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7effd4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          )},
+          { label:"Total Projects", value:totalProjects, color:"#ffbf6e", icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffbf6e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> },
+          { label:"In Progress",    value:activeProjects,    color:"#4caf7d", icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4caf7d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
+          { label:"Completed",      value:completedProjects, color:"#7effd4", icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7effd4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> },
         ].map(stat => (
           <div key={stat.label} style={{ backgroundColor:T.panelBg,borderRadius:"16px",padding:"18px 20px",border:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:"14px" }}>
-            <div style={{ width:"40px",height:"40px",borderRadius:"10px",background:T.inputBg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
-              {stat.icon}
-            </div>
+            <div style={{ width:"40px",height:"40px",borderRadius:"10px",background:T.inputBg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>{stat.icon}</div>
             <div>
               <div style={{ fontSize:"24px",fontWeight:"800",color:T.text,lineHeight:1 }}>{stat.value}</div>
               <div style={{ fontSize:"11px",color:T.mutedText,marginTop:"3px" }}>{stat.label}</div>
@@ -382,53 +369,54 @@ function HomeView({ tabs, tabData, onTabClick, onAddTab, bufferload, T }) {
         ))}
       </div>
 
-      {/* Project list */}
+      {/* Project list header */}
       <div style={{ marginBottom:"16px",display:"flex",alignItems:"center",justifyContent:"space-between" }}>
         <div style={{ fontSize:"12px",fontWeight:"700",color:T.subText,letterSpacing:"1px",textTransform:"uppercase" }}>Your Projects</div>
-        <button onClick={onAddTab} style={{ display:"flex",alignItems:"center",gap:"6px",padding:"6px 14px",borderRadius:"8px",border:"none",background:"#ffbf6e",color:"#0E131C",fontWeight:"700",fontSize:"12px",cursor:"pointer",fontFamily:"inherit" }}>
+        <PopBtn onClick={onAddTab} style={{ display:"flex",alignItems:"center",gap:"6px",padding:"6px 14px",borderRadius:"8px",border:"none",background:"#ffbf6e",color:"#0E131C",fontWeight:"700",fontSize:"12px",cursor:"pointer",fontFamily:"inherit" }}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           New Project
-        </button>
+        </PopBtn>
       </div>
 
       <div style={{ display:"flex",flexDirection:"column",gap:"10px" }}>
-        {tabs.map((tab, i) => {
-          const proj = tabData[tab.id] || blankProject();
+        {projects.map((proj) => {
           const totalSubs = proj.nodes.flatMap(n => n.subtasks || []).length;
           const doneSubs  = proj.nodes.flatMap(n => n.subtasks || []).filter(s => s.is_completed).length;
           const pct = totalSubs > 0 ? Math.round((doneSubs / totalSubs) * 100) : 0;
           const isComplete = proj.nodes.length > 0 && proj.nodes.every(n => n.is_completed);
+          const isOpen = openTabIds.has(proj.id);
 
           return (
-            <button key={tab.id} onClick={() => onTabClick(i)}
-              style={{ backgroundColor:T.panelBg,border:`1px solid ${T.border}`,borderRadius:"14px",padding:"16px 20px",cursor:"pointer",textAlign:"left",fontFamily:"inherit",display:"flex",alignItems:"center",gap:"16px",transition:"all 0.15s",width:"100%" }}
-              onMouseEnter={e=>{ e.currentTarget.style.borderColor="#ffbf6e"; e.currentTarget.style.transform="translateY(-1px)"; }}
-              onMouseLeave={e=>{ e.currentTarget.style.borderColor=T.border; e.currentTarget.style.transform="translateY(0)"; }}>
-              {/* Status dot */}
-              <div style={{ width:"10px",height:"10px",borderRadius:"50%",flexShrink:0,background:isComplete?"#4caf7d":proj.nodes.length>0?"#ffbf6e":T.border }} />
-              <div style={{ flex:1,minWidth:0 }}>
-                <div style={{ fontSize:"14px",fontWeight:"600",color:T.text,marginBottom:"6px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
-                  {tab.label}
-                </div>
-                {proj.nodes.length > 0 ? (
-                  <div style={{ display:"flex",alignItems:"center",gap:"10px" }}>
-                    <div style={{ flex:1,height:"5px",backgroundColor:T.trackBg,borderRadius:"3px",overflow:"hidden" }}>
-                      <div style={{ width:`${pct}%`,height:"100%",background:isComplete?"#4caf7d":"#ffbf6e",borderRadius:"3px",transition:"width 0.3s" }}/>
-                    </div>
-                    <span style={{ fontSize:"11px",color:T.mutedText,flexShrink:0 }}>{doneSubs}/{totalSubs} tasks</span>
+            <div key={proj.id} style={{ display:"flex",alignItems:"center",gap:"8px" }}>
+              <PopBtn onClick={() => onOpenProject(proj.id)}
+                style={{ flex:1,backgroundColor:T.panelBg,border:`1px solid ${isOpen?"#ffbf6e":T.border}`,borderRadius:"14px",padding:"16px 20px",cursor:"pointer",textAlign:"left",fontFamily:"inherit",display:"flex",alignItems:"center",gap:"16px",minWidth:0 }}>
+                <div style={{ width:"10px",height:"10px",borderRadius:"50%",flexShrink:0,background:isComplete?"#4caf7d":proj.nodes.length>0?"#ffbf6e":T.border }} />
+                <div style={{ flex:1,minWidth:0 }}>
+                  <div style={{ display:"flex",alignItems:"center",gap:"8px",marginBottom:"6px" }}>
+                    <span style={{ fontSize:"14px",fontWeight:"600",color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{proj.label}</span>
+                    {isOpen && <span style={{ fontSize:"9px",fontWeight:"700",background:"#ffbf6e22",color:"#ffbf6e",border:"1px solid #ffbf6e55",borderRadius:"6px",padding:"1px 6px",flexShrink:0 }}>OPEN</span>}
                   </div>
-                ) : (
-                  <div style={{ fontSize:"11px",color:T.mutedText }}>No roadmap yet — click to start</div>
-                )}
-              </div>
-              {proj.category && (
-                <span style={{ fontSize:"10px",padding:"3px 10px",borderRadius:"20px",background:T.inputBg,color:T.subText,flexShrink:0 }}>{proj.category}</span>
-              )}
-              {/* Arrow */}
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.dimText} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="9 18 15 12 9 6"/>
-              </svg>
-            </button>
+                  {proj.nodes.length > 0 ? (
+                    <div style={{ display:"flex",alignItems:"center",gap:"10px" }}>
+                      <div style={{ flex:1,height:"5px",backgroundColor:T.trackBg,borderRadius:"3px",overflow:"hidden" }}>
+                        <div style={{ width:`${pct}%`,height:"100%",background:isComplete?"#4caf7d":"#ffbf6e",borderRadius:"3px",transition:"width 0.3s" }}/>
+                      </div>
+                      <span style={{ fontSize:"11px",color:T.mutedText,flexShrink:0 }}>{doneSubs}/{totalSubs} tasks</span>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize:"11px",color:T.mutedText }}>No roadmap yet — click to start</div>
+                  )}
+                </div>
+                {proj.category && <span style={{ fontSize:"10px",padding:"3px 10px",borderRadius:"20px",background:T.inputBg,color:T.subText,flexShrink:0 }}>{proj.category}</span>}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.dimText} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </PopBtn>
+              {/* Permanent delete — only from homepage via trash icon */}
+              <PopBtn onClick={() => setPendingDelete(proj.id)}
+                title="Delete project permanently"
+                style={{ flexShrink:0,background:"none",border:`1px solid ${T.border}`,borderRadius:"10px",width:"36px",height:"36px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:T.mutedText }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+              </PopBtn>
+            </div>
           );
         })}
       </div>
@@ -440,41 +428,26 @@ function HomeView({ tabs, tabData, onTabClick, onAddTab, bufferload, T }) {
 function SidebarIcon({ onClick, title, children, active, T }) {
   const [h, setH] = useState(false);
   return (
-    <button style={{ background:"none",border:"none",cursor:"pointer",borderRadius:"10px",display:"flex",alignItems:"center",justifyContent:"center",width:"38px",height:"38px",transition:"color 0.2s,background 0.2s",color:active||h?T.text:T.dimText,backgroundColor:active||h?T.cardBg:"transparent" }}
+    <PopBtn style={{ background:"none",border:"none",cursor:"pointer",borderRadius:"10px",display:"flex",alignItems:"center",justifyContent:"center",width:"38px",height:"38px",color:active||h?T.text:T.dimText,backgroundColor:active||h?T.cardBg:"transparent" }}
       onClick={onClick} title={title} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}>
       {children}
-    </button>
+    </PopBtn>
   );
 }
 
 function Sidebar({ onTimerToggle, isRunning, darkMode, onToggleDark, view, onSetView, T }) {
   return (
     <div style={{ backgroundColor:T.panelBg,width:"56px",minWidth:"56px",padding:"16px 8px",borderRadius:"30px",display:"flex",flexDirection:"column",alignItems:"center",gap:"8px",flexShrink:0 }}>
-      {/* Home */}
       <SidebarIcon onClick={()=>onSetView("home")} title="Home" active={view==="home"} T={T}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-          <polyline points="9 22 9 12 15 12 15 22"/>
-        </svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       </SidebarIcon>
-
-      {/* Timer */}
       <SidebarIcon onClick={onTimerToggle} title="Timer" active={isRunning} T={T}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       </SidebarIcon>
-
-      {/* Proof Album — pure SVG camera, no background box */}
       <SidebarIcon onClick={()=>onSetView(view==="album"?"roadmap":"album")} title="Proof Album" active={view==="album"} T={T}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-          <circle cx="12" cy="13" r="4"/>
-        </svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
       </SidebarIcon>
-
-      {/* Spacer */}
       <div style={{ flex:1 }} />
-
-      {/* Light/dark toggle */}
       <SidebarIcon onClick={onToggleDark} title={darkMode?"Light Mode":"Dark Mode"} T={T}>
         {darkMode
           ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -487,8 +460,7 @@ function Sidebar({ onTimerToggle, isRunning, darkMode, onToggleDark, view, onSet
 // ── Nav ───────────────────────────────────────────────────────────────────────
 const MAX_TABS = 10;
 
-function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, onRenameTab, streak, notifications, onClearNotifs, T }) {
-  const [pendingDelete, setPendingDelete] = useState(null);
+function Nav({ tabs, activeTab, onTabClick, onAddTab, onCloseTab, onRenameTab, streak, notifications, onClearNotifs, T }) {
   const [bellOpen, setBellOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
   const [renamingTab, setRenamingTab] = useState(null);
@@ -502,79 +474,52 @@ function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, onRenameTab, 
     return () => document.removeEventListener("mousedown", h);
   }, [bellOpen]);
 
+  const [frame, setFrame] = useState(0);
+  useEffect(() => { const id = setInterval(() => setFrame(f => (f + 1) % 2), 500); return () => clearInterval(id); }, []);
+
   return (
-    <div style={{ position: "relative", display: "flex", flexDirection: "column", width: "100%" }}>
-      {pendingDelete !== null && (
-        <DeleteConfirmModal 
-          projectLabel={tabs[pendingDelete]?.label} 
-          onConfirm={() => { onDeleteTab(pendingDelete); setPendingDelete(null); }} 
-          onCancel={() => setPendingDelete(null)} 
-          T={T} 
-        />
-      )}
-
-      {/* TOP UTILITY GROUP */}
-      <div style={{ 
-        position: "absolute",
-        top: "4px", 
-        right: "0px",
-        display: "flex", 
-        alignItems: "center", 
-        gap: "10px",
-        zIndex: 10
-      }}>
-        {/* Streak */}
-        <div style={{ display:"flex", alignItems:"center", gap:"6px", backgroundColor:T.panelBg, borderRadius:"8px", padding:"3px 10px" }}>
-          <img src={icon} alt="streak" style={{ width: "18px", height: "18px", objectFit: "contain" }} />
-          <span style={{ fontSize:"16px", fontWeight:"bold", color:T.text, lineHeight:1 }}>{streak}</span>
+    <div style={{ position:"relative",display:"flex",flexDirection:"column",width:"100%" }}>
+      {/* Utility group */}
+      <div style={{ position:"absolute",top:"4px",right:"0px",display:"flex",alignItems:"center",gap:"10px",zIndex:10 }}>
+        <div style={{ display:"flex",alignItems:"center",gap:"6px",backgroundColor:T.panelBg,borderRadius:"8px",padding:"3px 10px" }}>
+          <StreakAnimatedBadge frame={frame} size={18} />
+          <span style={{ fontSize:"16px",fontWeight:"bold",color:T.text,lineHeight:1 }}>{streak}</span>
         </div>
-
-        {/* Notifications */}
         <div ref={bellRef} style={{ position:"relative" }}>
-          <button onClick={() => setBellOpen(o => !o)} style={{ background:"none", border:"none", color:bellOpen?T.text:T.dimText, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", width:"28px", height:"28px" }}>
+          <PopBtn onClick={() => setBellOpen(o => !o)} style={{ background:"none",border:"none",color:bellOpen?T.text:T.dimText,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",width:"28px",height:"28px",position:"relative" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
             </svg>
-            {notifications.length > 0 && (
-              <span style={{ position:"absolute", top:"4px", right:"4px", width:"7px", height:"7px", borderRadius:"50%", backgroundColor:"#ff4444", border:`1.5px solid ${T.bg}` }} />
-            )}
-          </button>
+            {notifications.length > 0 && <span style={{ position:"absolute",top:"4px",right:"4px",width:"7px",height:"7px",borderRadius:"50%",backgroundColor:"#ff4444",border:`1.5px solid ${T.bg}` }} />}
+          </PopBtn>
           {bellOpen && <BellMenu notifications={notifications} onClear={() => { onClearNotifs(); setBellOpen(false); }} T={T} />}
         </div>
       </div>
 
-      {/* TABS ROW + PLUS BUTTON */}
-      <div style={{ display: "flex", alignItems: "flex-end", overflowX: "auto", scrollbarWidth: "none", marginTop: "8px" }}>
+      {/* Tabs */}
+      <div style={{ display:"flex",alignItems:"flex-end",overflowX:"auto",scrollbarWidth:"none",marginTop:"8px" }}>
         {tabs.map((tab, i) => (
-          <div key={tab.id} style={{ position:"relative", display:"inline-flex", marginRight:"2px" }}>
+          <div key={tab.id} style={{ position:"relative",display:"inline-flex",marginRight:"2px" }}>
             {renamingTab === i ? (
-              <input
-                autoFocus
-                value={renameVal}
-                onChange={e => setRenameVal(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === "Enter") { onRenameTab(i, renameVal); setRenamingTab(null); }
-                  if (e.key === "Escape") setRenamingTab(null);
-                }}
+              <input autoFocus value={renameVal} onChange={e => setRenameVal(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { onRenameTab(i, renameVal); setRenamingTab(null); } if (e.key === "Escape") setRenamingTab(null); }}
                 onBlur={() => { if (renameVal.trim()) onRenameTab(i, renameVal); setRenamingTab(null); }}
-                style={{ width:"120px", padding:"8px 10px", borderRadius:"10px 10px 0 0", border:`2px solid #ffbf6e`, background:T.cardBg, color:T.text, fontSize:"13px", fontFamily:"inherit", outline:"none" }}
+                style={{ width:"120px",padding:"8px 10px",borderRadius:"10px 10px 0 0",border:`2px solid #ffbf6e`,background:T.cardBg,color:T.text,fontSize:"13px",fontFamily:"inherit",outline:"none" }}
               />
             ) : (
               <button
-                style={{ backgroundColor: activeTab===i ? T.cardBg : T.panelBg, padding:"8px 28px 8px 12px", borderRadius:"10px 10px 0 0", color: activeTab===i ? T.text : T.dimText, cursor:"pointer", fontSize:"13px", fontWeight: activeTab===i ? "600" : "400", border:"none", fontFamily:"inherit", maxWidth:"140px", minWidth:"60px", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", display:"block" }}
+                style={{ backgroundColor:activeTab===i?T.cardBg:T.panelBg,padding:"8px 28px 8px 12px",borderRadius:"10px 10px 0 0",color:activeTab===i?T.text:T.dimText,cursor:"pointer",fontSize:"13px",fontWeight:activeTab===i?"600":"400",border:"none",fontFamily:"inherit",maxWidth:"140px",minWidth:"60px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",display:"block" }}
                 onClick={() => onTabClick(i)}
-                onContextMenu={e => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, tabIndex: i }); }}
+                onContextMenu={e => { e.preventDefault(); setContextMenu({ x:e.clientX,y:e.clientY,tabIndex:i }); }}
                 title={tab.label}
-              >
-                {tab.label}
-              </button>
+              >{tab.label}</button>
             )}
+            {/* X = close tab only (project stays in homepage) */}
             {renamingTab !== i && (
-              <button
-                onClick={e => { e.stopPropagation(); setPendingDelete(i); }}
-                style={{ position:"absolute", top:"4px", right:"5px", background:"none", border:"none", color:T.mutedText, cursor:"pointer", fontSize:"12px" }}
-              >×</button>
+              <PopBtn onClick={e => { e.stopPropagation(); onCloseTab(i); }}
+                style={{ position:"absolute",top:"4px",right:"5px",background:"none",border:"none",color:T.mutedText,cursor:"pointer",fontSize:"12px",padding:"1px 2px",lineHeight:1 }}
+                onMouseEnter={e=>e.currentTarget.style.color="#ff9999"}
+                onMouseLeave={e=>e.currentTarget.style.color=T.mutedText}>×</PopBtn>
             )}
           </div>
         ))}
@@ -582,52 +527,32 @@ function Nav({ tabs, activeTab, onTabClick, onAddTab, onDeleteTab, onRenameTab, 
         {/* Right-click context menu */}
         {contextMenu && (
           <>
-            <div style={{ position:"fixed", inset:0, zIndex:998 }} onClick={() => setContextMenu(null)} />
-            <div style={{ position:"fixed", top: contextMenu.y, left: contextMenu.x, zIndex:999, backgroundColor:T.panelBg, border:`1px solid ${T.border}`, borderRadius:"10px", padding:"4px", boxShadow:"0 4px 20px rgba(0,0,0,0.3)", minWidth:"160px" }}>
+            <div style={{ position:"fixed",inset:0,zIndex:998 }} onClick={() => setContextMenu(null)} />
+            <div style={{ position:"fixed",top:contextMenu.y,left:contextMenu.x,zIndex:999,backgroundColor:T.panelBg,border:`1px solid ${T.border}`,borderRadius:"10px",padding:"4px",boxShadow:"0 4px 20px rgba(0,0,0,0.3)",minWidth:"160px" }}>
               {[
-                { label:"Rename", action: () => {
-                  setRenameVal(tabs[contextMenu.tabIndex]?.label || "");
-                  setRenamingTab(contextMenu.tabIndex);
-                  setContextMenu(null);
-                }, icon: (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                )},
-                { label:"Close tab", action: () => { onDeleteTab(contextMenu.tabIndex); setContextMenu(null); }, icon: (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                )},
-                { label:"Delete project", action: () => { setPendingDelete(contextMenu.tabIndex); setContextMenu(null); }, icon: (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                ), danger: true },
+                { label:"Rename", icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+                  action: () => { setRenameVal(tabs[contextMenu.tabIndex]?.label || ""); setRenamingTab(contextMenu.tabIndex); setContextMenu(null); }},
+                { label:"Close tab", icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+                  action: () => { onCloseTab(contextMenu.tabIndex); setContextMenu(null); }},
               ].map((item, idx) => (
                 <button key={idx} onClick={item.action}
-                  style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", padding:"8px 14px", border:"none", background:"none", color:item.danger?"#ff4444":T.text, textAlign:"left", cursor:"pointer", fontSize:"13px", fontFamily:"inherit", borderRadius:"7px" }}
+                  style={{ display:"flex",alignItems:"center",gap:"10px",width:"100%",padding:"8px 14px",border:"none",background:"none",color:T.text,textAlign:"left",cursor:"pointer",fontSize:"13px",fontFamily:"inherit",borderRadius:"7px" }}
                   onMouseEnter={e => e.currentTarget.style.background=T.cardBg}
-                  onMouseLeave={e => e.currentTarget.style.background="none"}
-                >
-                  {item.icon}
-                  {item.label}
+                  onMouseLeave={e => e.currentTarget.style.background="none"}>
+                  {item.icon}{item.label}
                 </button>
               ))}
             </div>
           </>
         )}
 
-        {/* PLUS BUTTON */}
-        <button 
-          onClick={onAddTab} 
-          style={{ backgroundColor: "#ffbf6e", border: "none", borderRadius: "50%", width: "24px", height: "24px", color: "#0E131C", fontSize: "16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", marginLeft: "8px", marginBottom: "6px", flexShrink: 0 }}
-        >
+        {/* Plus button */}
+        <PopBtn onClick={onAddTab}
+          style={{ backgroundColor:"#ffbf6e",border:"none",borderRadius:"50%",width:"24px",height:"24px",color:"#0E131C",fontSize:"16px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",marginLeft:"8px",marginBottom:"6px",flexShrink:0 }}>
           +
-        </button>
+        </PopBtn>
       </div>
     </div>
-  );
-}
-
-function StreakAnimatedBadge({ frame, size = 28 }) {
-  const frames = [frame1, frame2];
-  return (
-    <img src={frames[frame]} alt="streak" style={{ width: size, height: size, objectFit: "contain", imageRendering: "pixelated", flexShrink: 0 }} />
   );
 }
 
@@ -651,10 +576,10 @@ function TitleArea({ onAtomize, title, setTitle, desc, setDesc, category, setCat
       <div style={{ display:"flex",gap:"8px",marginTop:"4px" }}>
         <input style={{ flex:1,padding:"7px 12px",borderRadius:"8px",border:"none",background:T.inputBg,color:T.text,fontFamily:"inherit",fontSize:"13px" }}
           placeholder="Category (e.g. Art, Coding...)" value={category} onChange={e=>setCategory(e.target.value)} />
-        <button onClick={handleAtomize} disabled={atomizing||!title.trim()}
-          style={{ padding:"7px 18px",borderRadius:"8px",border:"none",fontWeight:"bold",cursor:atomizing||!title.trim()?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"13px",background:atomizing?"#c48a30":"#ffbf6e",color:atomizing?"#7a5010":"#0E131C",opacity:atomizing?0.85:1,transition:"all 0.2s",display:"flex",alignItems:"center",gap:"6px" }}>
+        <PopBtn onClick={handleAtomize} disabled={atomizing||!title.trim()}
+          style={{ padding:"7px 18px",borderRadius:"8px",border:"none",fontWeight:"bold",cursor:atomizing||!title.trim()?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"13px",background:atomizing?"#c48a30":"#ffbf6e",color:atomizing?"#7a5010":"#0E131C",opacity:atomizing?0.85:1,transition:"background 0.2s",display:"flex",alignItems:"center",gap:"6px" }}>
           {atomizing?<><span style={{display:"inline-block",animation:"spin 0.8s linear infinite"}}>⟳</span>Crumbling…</>:"🍪 Crumble"}
-        </button>
+        </PopBtn>
       </div>
     </div>
   );
@@ -676,38 +601,33 @@ function FileUploadZone({ onAtomizeFile, T }) {
       const result = await analyzeFile(file, (pct, msg) => { setProgress(pct); setStatus(msg); });
       onAtomizeFile(result);
     } catch (err) {
-      console.error("File analyze error:", err);
       setError("Failed to analyze file: " + (err.message || "Try again."));
       setLoading(false); setProgress(0);
     }
   };
 
   return (
-    <div style={{ marginBottom: "16px" }}>
+    <div style={{ marginBottom:"16px" }}>
       <div className="upload-zone"
-        onDragOver={e => { e.preventDefault(); setDragging(true); }} 
-        onDragLeave={() => setDragging(false)}
-        onDrop={e => { e.preventDefault(); setDragging(false); processFile(e.dataTransfer.files[0]); }}
-        style={{ border: `2px dashed ${dragging ? "#ffbf6e" : T.border}`, borderRadius: "14px", padding: "20px 16px", textAlign: "center", cursor: "pointer", background: dragging ? `${T.panelBg}88` : "transparent", transition: "all 0.2s" }}
-        onClick={() => fileRef.current?.click()}
-      >
-        <input type="file" ref={fileRef} hidden onChange={e => processFile(e.target.files[0])} accept=".pdf,.txt,.docx,.png,.jpg,.jpeg" />
-        <div style={{ marginBottom: "10px", display: "flex", justifyContent: "center" }}>
-          <img src={bufferload} alt="Upload Icon" style={{ width: "100px", height: "100px", objectFit: "contain", opacity: dragging ? 1 : 0.7, animation: dragging ? "spin 2s linear infinite" : "none" }} />
+        onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)}
+        onDrop={e=>{e.preventDefault();setDragging(false);processFile(e.dataTransfer.files[0]);}}
+        style={{ border:`2px dashed ${dragging?"#ffbf6e":T.border}`,borderRadius:"14px",padding:"20px 16px",textAlign:"center",cursor:"pointer",background:dragging?`${T.panelBg}88`:"transparent",transition:"all 0.2s" }}
+        onClick={()=>fileRef.current?.click()}>
+        <input type="file" ref={fileRef} hidden onChange={e=>processFile(e.target.files[0])} accept=".pdf,.txt,.docx,.png,.jpg,.jpeg" />
+        <div style={{ marginBottom:"10px",display:"flex",justifyContent:"center" }}>
+          <img src={bufferload} alt="Upload" style={{ width:"100px",height:"100px",objectFit:"contain",opacity:dragging?1:0.7,animation:dragging?"spin 2s linear infinite":"none" }} />
         </div>
-        <div style={{ fontSize: "14px", fontWeight: "600", color: T.text }}>
-          {loading ? "Analyzing..." : "Drop a file or click to upload"}
-        </div>
-        <div style={{ fontSize: "11px", color: T.mutedText, marginTop: "4px" }}>PDF, TXT, Images or Docs supported</div>
+        <div style={{ fontSize:"14px",fontWeight:"600",color:T.text }}>{loading?"Analyzing...":"Drop a file or click to upload"}</div>
+        <div style={{ fontSize:"11px",color:T.mutedText,marginTop:"4px" }}>PDF, TXT, Images or Docs supported</div>
         {loading && (
-          <div style={{ marginTop: "12px" }}>
-            <div style={{ height: "4px", background: T.trackBg, borderRadius: "2px", overflow: "hidden", marginBottom: "6px" }}>
-              <div style={{ width: `${progress}%`, height: "100%", background: "#ffbf6e", transition: "width 0.3s" }} />
+          <div style={{ marginTop:"12px" }}>
+            <div style={{ height:"4px",background:T.trackBg,borderRadius:"2px",overflow:"hidden",marginBottom:"6px" }}>
+              <div style={{ width:`${progress}%`,height:"100%",background:"#ffbf6e",transition:"width 0.3s" }} />
             </div>
-            <div style={{ fontSize: "10px", color: "#ffbf6e", fontWeight: "bold" }}>{status}</div>
+            <div style={{ fontSize:"10px",color:"#ffbf6e",fontWeight:"bold" }}>{status}</div>
           </div>
         )}
-        {error && <div style={{ fontSize: "11px", color: "#ff4444", marginTop: "8px", fontWeight: "600" }}>{error}</div>}
+        {error && <div style={{ fontSize:"11px",color:"#ff4444",marginTop:"8px",fontWeight:"600" }}>{error}</div>}
       </div>
     </div>
   );
@@ -722,36 +642,30 @@ function CountdownTimer({ timer, T }) {
 
   const openEdit = () => {
     if (isRunning) return;
-    const h = Math.floor(totalSeconds/3600), m = Math.floor((totalSeconds%3600)/60), s = totalSeconds%60;
-    const str = h > 0 ? `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}` : `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-    setEditVal(str); setEditing(true);
+    const h=Math.floor(totalSeconds/3600),m=Math.floor((totalSeconds%3600)/60),s=totalSeconds%60;
+    setEditVal(h>0?`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`);
+    setEditing(true);
   };
-
   useEffect(() => { if (editing && inputRef.current) { inputRef.current.focus(); inputRef.current.select(); } }, [editing]);
-
   const applyEdit = () => {
-    const parts = editVal.trim().split(":").map(p => parseInt(p) || 0);
-    let secs = 0;
-    if (parts.length === 3) secs = parts[0]*3600 + parts[1]*60 + parts[2];
-    else if (parts.length === 2) secs = parts[0]*60 + parts[1];
-    else secs = parts[0]*60;
+    const parts = editVal.trim().split(":").map(p => parseInt(p)||0);
+    let secs = parts.length===3?parts[0]*3600+parts[1]*60+parts[2]:parts.length===2?parts[0]*60+parts[1]:parts[0]*60;
     if (secs > 0) setDuration(secs);
     setEditing(false);
   };
 
   const r=44, circ=2*Math.PI*r, dash=circ*(1-pct/100);
-  const isBreak = mode === "break";
-  const accent  = isBreak ? "#4caf7d" : "#ffbf6e";
+  const isBreak=mode==="break", accent=isBreak?"#4caf7d":"#ffbf6e";
 
   return (
     <div style={{ width:"100%",display:"flex",flexDirection:"column",alignItems:"center" }}>
       <div style={{ width:"100%",height:"1px",backgroundColor:T.border,marginBottom:"14px" }} />
       <div style={{ display:"flex",gap:"6px",marginBottom:"14px" }}>
         {["work","break"].map(m => (
-          <button key={m} onClick={()=>{setMode(m);reset();}}
+          <PopBtn key={m} onClick={()=>{setMode(m);reset();}}
             style={{ padding:"3px 14px",borderRadius:"20px",border:"none",background:mode===m?"#ffbf6e":T.trackBg,color:mode===m?"#0E131C":T.dimText,fontWeight:mode===m?"700":"400",fontFamily:"inherit",fontSize:"11px",cursor:"pointer",textTransform:"uppercase",letterSpacing:"1px" }}>
             {m==="work"?"Focus":"Break"}
-          </button>
+          </PopBtn>
         ))}
       </div>
       <div style={{ fontSize:"10px",color:T.dimText,letterSpacing:"1.5px",textTransform:"uppercase",marginBottom:"10px" }}>{isBreak?"Break Timer":"Flowtime Timer"}</div>
@@ -762,11 +676,10 @@ function CountdownTimer({ timer, T }) {
         </svg>
         <div style={{ position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center" }}>
           {editing ? (
-            <input ref={inputRef} value={editVal} onChange={e => setEditVal(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") applyEdit(); if (e.key === "Escape") setEditing(false); }}
+            <input ref={inputRef} value={editVal} onChange={e=>setEditVal(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter")applyEdit();if(e.key==="Escape")setEditing(false);}}
               style={{ width:"84px",background:"transparent",border:"none",borderBottom:`2px solid ${accent}`,color:accent,fontSize:"18px",fontWeight:"bold",textAlign:"center",fontFamily:"inherit",outline:"none",letterSpacing:"2px" }}
-              placeholder="25:00"
-            />
+              placeholder="25:00" />
           ) : (
             <div onClick={openEdit} title={isRunning?"":"Click to edit"} style={{ fontSize:"22px",fontWeight:"bold",color:accent,letterSpacing:"2px",cursor:isRunning?"default":"pointer",userSelect:"none" }}>
               {formatTime(remaining)}
@@ -775,12 +688,12 @@ function CountdownTimer({ timer, T }) {
         </div>
       </div>
       <div style={{ fontSize:"11px",color:T.mutedText,marginBottom:"12px",minHeight:"16px",textAlign:"center" }}>
-        {editing ? "type MM:SS or HH:MM:SS · Enter to save · Esc to cancel" : !isRunning ? "click time to edit" : ""}
+        {editing?"type MM:SS or HH:MM:SS · Enter to save · Esc to cancel":!isRunning?"click time to edit":""}
       </div>
       <div style={{ display:"flex",gap:"6px" }}>
-        <button onClick={start} disabled={isRunning||remaining===0} style={{ padding:"6px 14px",borderRadius:"8px",border:"none",background:isRunning||remaining===0?T.trackBg:"#7effd4",color:isRunning||remaining===0?T.mutedText:"#0E131C",fontWeight:"bold",cursor:isRunning||remaining===0?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"12px" }}>▶ Start</button>
-        <button onClick={pause} disabled={!isRunning} style={{ padding:"6px 14px",borderRadius:"8px",border:"none",background:!isRunning?T.trackBg:"#ffbf6e",color:!isRunning?T.mutedText:"#0E131C",fontWeight:"bold",cursor:!isRunning?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"12px" }}>⏸ Pause</button>
-        <button onClick={reset} style={{ padding:"6px 14px",borderRadius:"8px",border:"none",background:T.panelBg,color:T.text,fontWeight:"bold",cursor:"pointer",fontFamily:"inherit",fontSize:"12px" }}>↺ Reset</button>
+        <PopBtn onClick={start} disabled={isRunning||remaining===0} style={{ padding:"6px 14px",borderRadius:"8px",border:"none",background:isRunning||remaining===0?T.trackBg:"#7effd4",color:isRunning||remaining===0?T.mutedText:"#0E131C",fontWeight:"bold",cursor:isRunning||remaining===0?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"12px" }}>▶ Start</PopBtn>
+        <PopBtn onClick={pause} disabled={!isRunning} style={{ padding:"6px 14px",borderRadius:"8px",border:"none",background:!isRunning?T.trackBg:"#ffbf6e",color:!isRunning?T.mutedText:"#0E131C",fontWeight:"bold",cursor:!isRunning?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"12px" }}>⏸ Pause</PopBtn>
+        <PopBtn onClick={reset} style={{ padding:"6px 14px",borderRadius:"8px",border:"none",background:T.panelBg,color:T.text,fontWeight:"bold",cursor:"pointer",fontFamily:"inherit",fontSize:"12px" }}>↺ Reset</PopBtn>
       </div>
     </div>
   );
@@ -792,12 +705,10 @@ function Scoreboard({ xp, streak, timer, totalNodes, T }) {
   const msg=streak>0?`You are on a ${streak}-day streak!`:"No streak yet!";
   const sub=streak>=7?"Unstoppable! 🔥":streak>=3?"Keep it up!":streak>=1?"Good start!":"Complete a task to start!";
   const [frame, setFrame] = useState(0);
-  useEffect(() => { const id = setInterval(() => setFrame(f => (f + 1) % 2), 500); return () => clearInterval(id); }, []);
+  useEffect(() => { const id = setInterval(() => setFrame(f => (f+1)%2), 500); return () => clearInterval(id); }, []);
   return (
     <div className={T.scrollbar} style={{ flex:1,backgroundColor:T.panelBg,borderRadius:"20px",padding:"20px 16px",display:"flex",flexDirection:"column",alignItems:"center",overflowY:"auto" }}>
-      <div style={{ marginBottom:"6px",lineHeight:1 }}>
-        <StreakAnimatedBadge frame={frame} size={200} />
-      </div>
+      <div style={{ marginBottom:"6px",lineHeight:1 }}><StreakAnimatedBadge frame={frame} size={200} /></div>
       <div style={{ fontSize:"15px",fontWeight:"bold",color:T.text,textAlign:"center",marginBottom:"2px" }}>{msg}</div>
       <div style={{ fontSize:"12px",color:T.subText,textAlign:"center",marginBottom:"14px" }}>{sub}</div>
       <div style={{ width:"100%" }}>
@@ -833,15 +744,13 @@ function SubtaskRow({ sub, isNextUp, isLocked, onComplete, T }) {
         {!sub.is_completed&&isNextUp&&<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffbf6e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>}
         {uploading&&<div style={{ width:"8px",height:"8px",borderRadius:"50%",background:"#ffbf6e",animation:"pulse 0.5s ease infinite alternate" }}/>}
       </div>
-      <span style={{ fontSize:"13px",color:sub.is_completed?"#4caf7d":isNextUp?T.text:T.dimText,transition:"color 0.3s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",flex:1,textAlign:"left" }}>
-        {sub.title}
-      </span>
+      <span style={{ fontSize:"13px",color:sub.is_completed?"#4caf7d":isNextUp?T.text:T.dimText,transition:"color 0.3s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",flex:1,textAlign:"left" }}>{sub.title}</span>
       {isNextUp&&!sub.is_completed&&(
-        <button onClick={trigger} title="Attach proof screenshot" style={{ marginLeft:"auto",background:"none",border:"none",cursor:"pointer",padding:"4px",display:"flex",alignItems:"center",flexShrink:0 }}>
+        <PopBtn onClick={trigger} title="Attach proof screenshot" style={{ marginLeft:"auto",background:"none",border:"none",cursor:"pointer",padding:"4px",display:"flex",alignItems:"center",flexShrink:0 }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffbf6e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{transform:"rotate(45deg)"}}>
             <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
           </svg>
-        </button>
+        </PopBtn>
       )}
       {sub.is_completed&&sub.proofUrl&&<img src={sub.proofUrl} alt="proof" style={{ width:"20px",height:"20px",borderRadius:"4px",objectFit:"cover",border:"1px solid #4caf7d",flexShrink:0,marginLeft:"auto" }}/>}
     </div>
@@ -850,20 +759,15 @@ function SubtaskRow({ sub, isNextUp, isLocked, onComplete, T }) {
 
 // ── Phase Block ───────────────────────────────────────────────────────────────
 function PhaseBlock({ node, isPhaseActive, onCompleteSubtask, T }) {
-  const subtasks = node.subtasks||[];
-  const svgH     = subtasks.length * ROW_H;
-  const doneSubs = subtasks.filter(s=>s.is_completed).length;
-  const lineColor  = T.completedLine;
-  const trackColor = T.isDark ? "#2a2f45" : T.border;
+  const subtasks=node.subtasks||[], svgH=subtasks.length*ROW_H, doneSubs=subtasks.filter(s=>s.is_completed).length;
+  const lineColor=T.completedLine, trackColor=T.isDark?"#2a2f45":T.border;
   return (
     <div style={{ marginBottom:"24px" }}>
       <div style={{ display:"flex",alignItems:"center",gap:"12px",marginBottom:"4px" }}>
         <div style={{ width:"30px",height:"30px",borderRadius:"50%",flexShrink:0,transition:"all 0.3s",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"13px",border:`2px solid ${node.is_completed?"#4caf7d":isPhaseActive?"#ffbf6e":"#445"}`,backgroundColor:node.is_completed?"#4caf7d":"transparent",color:"#fff" }}>
           {node.is_completed?"✓":""}
         </div>
-        <div style={{ fontSize:"15px",fontWeight:"600",transition:"color 0.3s",color:node.is_completed?"#4caf7d":isPhaseActive?"#ffbf6e":T.text }}>
-          {node.title}
-        </div>
+        <div style={{ fontSize:"15px",fontWeight:"600",transition:"color 0.3s",color:node.is_completed?"#4caf7d":isPhaseActive?"#ffbf6e":T.text }}>{node.title}</div>
       </div>
       {subtasks.length>0&&(
         <div style={{ display:"flex",alignItems:"flex-start",marginLeft:"14px" }}>
@@ -872,20 +776,12 @@ function PhaseBlock({ node, isPhaseActive, onCompleteSubtask, T }) {
             {subtasks.map((sub,i)=>{ const cy=i*ROW_H+ROW_H/2; return <line key={`trk-${sub.subtask_id}`} x1="2" y1={cy} x2="28" y2={cy} stroke={trackColor} strokeWidth="3"/>; })}
             {subtasks.map((sub,i)=>{
               if(!sub.is_completed) return null;
-              const prevCy=i===0?0:(i-1)*ROW_H+ROW_H/2, cy=i*ROW_H+ROW_H/2;
-              const isNewest=i===doneSubs-1;
-              return (
-                <g key={`done-${sub.subtask_id}`} style={isNewest?{opacity:0,animation:"fadeInLine 0.5s ease-out forwards"}:{opacity:1}}>
-                  <line x1="2" y1={prevCy} x2="2" y2={cy} stroke={lineColor} strokeWidth="3"/>
-                  <line x1="2" y1={cy} x2="28" y2={cy} stroke={lineColor} strokeWidth="3"/>
-                </g>
-              );
+              const prevCy=i===0?0:(i-1)*ROW_H+ROW_H/2, cy=i*ROW_H+ROW_H/2, isNewest=i===doneSubs-1;
+              return (<g key={`done-${sub.subtask_id}`} style={isNewest?{opacity:0,animation:"fadeInLine 0.5s ease-out forwards"}:{opacity:1}}><line x1="2" y1={prevCy} x2="2" y2={cy} stroke={lineColor} strokeWidth="3"/><line x1="2" y1={cy} x2="28" y2={cy} stroke={lineColor} strokeWidth="3"/></g>);
             })}
           </svg>
           <div style={{ display:"flex",flexDirection:"column",flex:1 }}>
-            {subtasks.map((sub,i)=>{
-              const prevDone=i===0||subtasks[i-1].is_completed;
-              const isNextUp=!sub.is_completed&&prevDone&&isPhaseActive;
+            {subtasks.map((sub,i)=>{ const prevDone=i===0||subtasks[i-1].is_completed, isNextUp=!sub.is_completed&&prevDone&&isPhaseActive;
               return <SubtaskRow key={sub.subtask_id} sub={sub} isNextUp={isNextUp} isLocked={!sub.is_completed&&!isNextUp} onComplete={(dataUrl)=>onCompleteSubtask(node.node_id,sub.subtask_id,dataUrl)} T={T}/>;
             })}
           </div>
@@ -902,55 +798,55 @@ function Roadmap({ nodes, activeNode, onCompleteSubtask, onAtomizeFile, hasRoadm
       <div style={{ fontSize:"12px",color:T.subText,marginBottom:"16px",fontWeight:"600",letterSpacing:"1px",textTransform:"uppercase" }}>Roadmap</div>
       {!hasRoadmap && <FileUploadZone onAtomizeFile={onAtomizeFile} T={T}/>}
       {nodes.length===0
-        ? <p style={{ color:T.mutedText,fontSize:"13px",margin:0,textAlign:"left" }}>Enter a project above and hit ✨ Crumble!, or upload a file to generate your roadmap.</p>
+        ? <p style={{ color:T.mutedText,fontSize:"13px",margin:0,textAlign:"left" }}>Enter a project above and hit 🍪 Crumble, or upload a file to generate your roadmap.</p>
         : nodes.map(node=><PhaseBlock key={node.node_id} node={node} isPhaseActive={node.node_id===activeNode&&!node.is_completed} onCompleteSubtask={onCompleteSubtask} T={T}/>)
       }
     </div>
   );
 }
 
-// ── Persistence helpers ───────────────────────────────────────────────────────
+// ── Persistence ───────────────────────────────────────────────────────────────
 function loadState() {
   try {
     const raw = localStorage.getItem("breadcrumber_state");
     if (raw) {
       const s = JSON.parse(raw);
       return {
-        tabs:       s.tabs       || [],
-        tabData:    s.tabData    || {},
-        tabCounter: s.tabCounter || 0,
+        tabs:        s.tabs        || [],
+        tabData:     s.tabData     || {},
+        projectMeta: s.projectMeta || {}, // { [id]: { label } } — all projects ever
+        tabCounter:  s.tabCounter  || 0,
       };
     }
   } catch(e) {}
-  return { tabs: [], tabData: {}, tabCounter: 0 };
+  return { tabs:[], tabData:{}, projectMeta:{}, tabCounter:0 };
 }
-
-function saveState(tabs, tabData, tabCounter) {
-  try {
-    localStorage.setItem("breadcrumber_state", JSON.stringify({ tabs, tabData, tabCounter }));
-  } catch(e) {}
+function saveState(tabs, tabData, projectMeta, tabCounter) {
+  try { localStorage.setItem("breadcrumber_state", JSON.stringify({ tabs, tabData, projectMeta, tabCounter })); } catch(e) {}
 }
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 export default function Breadcrumber() {
-  const initState = loadState();
-  const tabCounter = useRef(initState.tabCounter);
-  const [tabs, setTabs]       = useState(initState.tabs);
-  const [activeTab, setActiveTab] = useState(0);
-  const [tabData, setTabData]     = useState(initState.tabData);
+  const initState  = loadState();
+  // tabCounter: counts open tabs sequentially, resets to 1 when all tabs closed
+  // projectCounter: ever-growing ID so project data keys are unique
+  const projectCounter = useRef(initState.tabCounter);
+
+  const [tabs, setTabs]               = useState(initState.tabs);
+  const [activeTab, setActiveTab]     = useState(0);
+  const [tabData, setTabData]         = useState(initState.tabData);
+  // projectMeta stores label for ALL created projects (even closed ones)
+  const [projectMeta, setProjectMeta] = useState(initState.projectMeta);
+
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem("darkMode");
     return saved !== null ? saved === "true" : true;
   });
   const [notifications, setNotifications] = useState([]);
-  // Default to home so empty state shows on load; if projects exist go to roadmap
-  const [view, setView] = useState(initState.tabs.length === 0 ? "home" : "roadmap");
+  const [view, setView]                   = useState(initState.tabs.length === 0 ? "home" : "roadmap");
   const [showMaxTabsError, setShowMaxTabsError] = useState(false);
 
-  // Persist tabs + tabData any time they change
-  useEffect(() => {
-    saveState(tabs, tabData, tabCounter.current);
-  }, [tabs, tabData]);
+  useEffect(() => { saveState(tabs, tabData, projectMeta, projectCounter.current); }, [tabs, tabData, projectMeta]);
 
   const { streak, updateStreak } = useStreak();
   const timer        = useCountdownTimer();
@@ -964,7 +860,9 @@ export default function Breadcrumber() {
 
   const setTitle = (v) => {
     updateProject(currentTabId, p => ({ ...p, title: v }));
-    setTabs(prev => prev.map(t => t.id === currentTabId ? { ...t, label: v.trim() || `Project ${currentTabId}` } : t));
+    const newLabel = v.trim() || `Project ${tabs.length}`;
+    setTabs(prev => prev.map(t => t.id === currentTabId ? { ...t, label: newLabel } : t));
+    setProjectMeta(prev => ({ ...prev, [currentTabId]: { ...prev[currentTabId], label: newLabel } }));
   };
   const setDesc     = v => updateProject(currentTabId, p=>({...p,desc:v}));
   const setCategory = v => updateProject(currentTabId, p=>({...p,category:v}));
@@ -974,9 +872,7 @@ export default function Breadcrumber() {
     updateProject(tabId, proj => {
       const updatedNodes = proj.nodes.map(node => {
         if (node.node_id !== nodeId) return node;
-        const updatedSubtasks = node.subtasks.map(s =>
-          s.subtask_id===subtaskId ? {...s,is_completed:true,proofUrl:proofDataUrl} : s
-        );
+        const updatedSubtasks = node.subtasks.map(s => s.subtask_id===subtaskId ? {...s,is_completed:true,proofUrl:proofDataUrl} : s);
         const allDone = updatedSubtasks.every(s=>s.is_completed);
         if (allDone && !node.is_completed)
           setNotifications(prev => [{icon:"🏆",title:`Phase complete: ${node.title}`,body:`You finished all subtasks in "${node.title}"!`},...prev]);
@@ -999,38 +895,40 @@ export default function Breadcrumber() {
   const handleAtomize = async (projectName, cat) => {
     try {
       const data = await atomizeProject(projectName, cat);
-      updateProject(currentTabId, p => ({ ...p, nodes: data.nodes, activeNode: 0, xp: 0, completedNodes: [], hasRoadmap: true, proofAlbum: {} }));
-    } catch (err) {
-      console.error("Atomize failed:", err);
-      alert(`Atomize failed: ${err.message}`);
-    }
+      updateProject(currentTabId, p => ({ ...p, nodes:data.nodes, activeNode:0, xp:0, completedNodes:[], hasRoadmap:true, proofAlbum:{} }));
+    } catch (err) { alert(`Atomize failed: ${err.message}`); }
   };
 
   const handleAtomizeFile = (parsed) => {
     if (!parsed?.nodes?.length) return;
     const newTitle = parsed.project_name || "";
-    if (newTitle) setTabs(prev => prev.map(t => t.id === currentTabId ? {...t, label: newTitle} : t));
-    updateProject(currentTabId, p => ({ ...p, nodes: parsed.nodes, activeNode: 0, xp: 0, completedNodes: [], hasRoadmap: true, proofAlbum: {}, title: newTitle || p.title }));
+    if (newTitle) {
+      setTabs(prev => prev.map(t => t.id === currentTabId ? {...t, label: newTitle} : t));
+      setProjectMeta(prev => ({ ...prev, [currentTabId]: { ...prev[currentTabId], label: newTitle } }));
+    }
+    updateProject(currentTabId, p => ({ ...p, nodes:parsed.nodes, activeNode:0, xp:0, completedNodes:[], hasRoadmap:true, proofAlbum:{}, title:newTitle||p.title }));
   };
 
   const handleAddTab = () => {
-    if (tabs.length >= MAX_TABS) {
-      setShowMaxTabsError(true);
-      return;
-    }
-    tabCounter.current += 1;
-    const newId = tabCounter.current;
-    setTabs(prev=>[...prev,{id:newId,label:`Project ${newId}`}]);
-    setTabData(prev=>({...prev,[newId]:blankProject()}));
+    if (tabs.length >= MAX_TABS) { setShowMaxTabsError(true); return; }
+    projectCounter.current += 1;
+    const newId = projectCounter.current;
+    // Tab label: "Project N" based on how many tabs are currently open + 1
+    const tabNum = tabs.length + 1;
+    const newLabel = `Project ${tabNum}`;
+    setTabs(prev => [...prev, { id:newId, label:newLabel }]);
+    setTabData(prev => ({ ...prev, [newId]: blankProject() }));
+    setProjectMeta(prev => ({ ...prev, [newId]: { label: newLabel } }));
     setActiveTab(tabs.length);
     if (view === "home") setView("roadmap");
   };
 
-  const handleDeleteTab = (i) => {
-    const dId = tabs[i].id;
+  // Close tab — removes from tab bar but keeps project data and projectMeta
+  const handleCloseTab = (i) => {
     const newTabs = tabs.filter((_,idx) => idx !== i);
     setTabs(newTabs);
-    setTabData(prev => { const n={...prev}; delete n[dId]; return n; });
+    // Re-number remaining tabs as "Project 1", "Project 2"... only for tabs that still have default names
+    // (We do NOT touch tabData or projectMeta — project still exists)
     if (newTabs.length === 0) {
       setView("home");
       setActiveTab(0);
@@ -1039,33 +937,66 @@ export default function Breadcrumber() {
     }
   };
 
-  const handleRenameTab = (i, newLabel) => {
-    if (!newLabel.trim()) return;
-    setTabs(prev => prev.map((t, idx) => idx === i ? { ...t, label: newLabel.trim() } : t));
+  // Permanently delete a project — removes from tabData, projectMeta, and closes tab if open
+  const handleDeleteProject = (projectId) => {
+    // Remove from tabs if open
+    const tabIdx = tabs.findIndex(t => t.id === projectId);
+    if (tabIdx !== -1) {
+      const newTabs = tabs.filter(t => t.id !== projectId);
+      setTabs(newTabs);
+      if (newTabs.length === 0) { setView("home"); setActiveTab(0); }
+      else setActiveTab(prev => { if(prev===tabIdx) return Math.max(0,tabIdx-1); if(prev>tabIdx) return prev-1; return prev; });
+    }
+    setTabData(prev => { const n={...prev}; delete n[projectId]; return n; });
+    setProjectMeta(prev => { const n={...prev}; delete n[projectId]; return n; });
   };
 
-  // When switching to a project tab from home, switch view to roadmap
+  const handleRenameTab = (i, newLabel) => {
+    if (!newLabel.trim()) return;
+    const tid = tabs[i].id;
+    setTabs(prev => prev.map((t,idx) => idx===i ? {...t, label:newLabel.trim()} : t));
+    setProjectMeta(prev => ({ ...prev, [tid]: { ...prev[tid], label: newLabel.trim() } }));
+  };
+
+  // Open a project from homepage — adds to tabs if not already open
+  const handleOpenProject = (projectId) => {
+    const existingIdx = tabs.findIndex(t => t.id === projectId);
+    if (existingIdx !== -1) {
+      setActiveTab(existingIdx);
+    } else {
+      if (tabs.length >= MAX_TABS) { setShowMaxTabsError(true); return; }
+      const meta = projectMeta[projectId] || { label: "Project" };
+      setTabs(prev => [...prev, { id:projectId, label:meta.label }]);
+      setActiveTab(tabs.length);
+    }
+    setView("roadmap");
+  };
+
   const handleTabClick = (i) => {
     setActiveTab(i);
     if (view === "home") setView("roadmap");
   };
 
-  const handleSetView = (v) => {
-    setView(v);
-  };
+  // Build allProjects list for homepage (all in projectMeta, with data from tabData)
+  const allProjects = Object.entries(projectMeta).map(([idStr, meta]) => {
+    const id = Number(idStr);
+    const data = tabData[id] || blankProject();
+    return { id, label: meta.label, ...data };
+  });
+  const openTabIds = new Set(tabs.map(t => t.id));
 
   const isHome = view === "home";
 
   return (
     <div style={{ backgroundColor:T.bg,padding:"10px",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",height:"100vh",margin:0,boxSizing:"border-box",overflow:"hidden" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         @keyframes spin          { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
         @keyframes pulse         { from{opacity:0.6} to{opacity:1} }
         @keyframes fadeInLine    { from{opacity:0} to{opacity:1} }
         @keyframes fadeInOverlay { from{opacity:0} to{opacity:1} }
         @keyframes popIn         { 0%{opacity:0;transform:scale(0.7)} 60%{transform:scale(1.05)} 100%{opacity:1;transform:scale(1)} }
-        @keyframes floatBob       { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+        @keyframes floatBob      { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
         ::placeholder { color: #889; }
         * { box-sizing: border-box; }
         .upload-zone:hover { border-color: #ffbf6e !important; }
@@ -1076,6 +1007,17 @@ export default function Breadcrumber() {
         .scrollbar-dark::-webkit-scrollbar-track{background:#1a1f35;border-radius:10px}
         .scrollbar-dark::-webkit-scrollbar-thumb{background:#3a4060;border-radius:10px}
         .scrollbar-dark::-webkit-scrollbar-thumb:hover{background:#556080}
+
+        /* ── Pop-on-hover for all .pop-btn buttons ── */
+        .pop-btn {
+          transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s ease;
+        }
+        .pop-btn:not(:disabled):hover {
+          transform: scale(1.08);
+        }
+        .pop-btn:not(:disabled):active {
+          transform: scale(0.95);
+        }
       `}</style>
 
       {timer.isDone && <TimerBreakPopup mode={timer.mode} onOkay={timer.dismissDone} T={T} />}
@@ -1088,7 +1030,7 @@ export default function Breadcrumber() {
           darkMode={darkMode}
           onToggleDark={() => { setDarkMode(d => { localStorage.setItem("darkMode", String(!d)); return !d; }); }}
           view={view}
-          onSetView={handleSetView}
+          onSetView={setView}
           T={T}
         />
         <div style={{ flex:1,display:"flex",flexDirection:"column",minWidth:0 }}>
@@ -1097,7 +1039,7 @@ export default function Breadcrumber() {
             activeTab={activeTab}
             onTabClick={handleTabClick}
             onAddTab={handleAddTab}
-            onDeleteTab={handleDeleteTab}
+            onCloseTab={handleCloseTab}
             onRenameTab={handleRenameTab}
             streak={streak}
             notifications={notifications}
@@ -1106,7 +1048,14 @@ export default function Breadcrumber() {
           />
           <div style={{ backgroundColor:T.cardBg,flex:1,borderRadius:"0 12px 12px 12px",overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0 }}>
             {isHome ? (
-              <HomeView tabs={tabs} tabData={tabData} onTabClick={handleTabClick} onAddTab={handleAddTab} bufferload={bufferload} T={T} />
+              <HomeView
+                allProjects={allProjects}
+                openTabIds={openTabIds}
+                onOpenProject={handleOpenProject}
+                onAddTab={handleAddTab}
+                onDeleteProject={handleDeleteProject}
+                T={T}
+              />
             ) : (
               <>
                 <TitleArea onAtomize={handleAtomize} title={project.title} setTitle={setTitle} desc={project.desc} setDesc={setDesc} category={project.category} setCategory={setCategory} T={T}/>
