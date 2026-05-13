@@ -1,6 +1,14 @@
-# 🍞 Breadcrumber
+<p align="center">
+  <img src="frontend/public/favicon.svg" width="80" alt="Breadcrumber logo" />
+</p>
 
-**An ADHD-friendly productivity app that breaks any project into tiny, doable steps — one breadcrumb at a time.**
+<h1 align="center">🍞 Breadcrumber</h1>
+
+<p align="center">
+  <img src="frontend/src/assets/breadcat-chomp.gif" width="160" alt="Bread cat chomping a cookie" />
+</p>
+
+<p align="center"><strong>An ADHD-friendly productivity app that breaks any project into tiny, doable steps — one breadcrumb at a time.</strong></p>
 
 Breadcrumber takes a project idea (like *"Write a Short Story"* or *"Build an IKEA Wardrobe"*) and uses AI to break it into a visual roadmap of bite-sized 15-minute tasks. Complete tasks, earn XP, and ride the dopamine wave of actually finishing things.
 
@@ -140,6 +148,16 @@ breadcrumber-app/
 ## 🤝 Contributing
 
 Pull requests are welcome! If you have ideas for new features or find a bug, feel free to open an issue.
+
+---
+
+## 🐱 Meet the Mascot
+
+<p align="center">
+  <img src="frontend/src/assets/buffer-loading.png" width="160" alt="Bread cat fishing — loading screen" />
+  <br/>
+  <em>Bread Cat patiently waiting while the AI cooks up your roadmap...</em>
+</p>
 
 ---
 
