@@ -629,14 +629,13 @@ function TitleArea({ onAtomize, title, setTitle, desc, setDesc, category, setCat
 }
 
 // ── File Upload Zone ──────────────────────────────────────────────────────────
-// Funnier, more reassuring loading messages
 const UPLOAD_MSGS = [
-  "Feeding your file to the AI hamster… 🐹",
-  "Gemini is putting on its reading glasses… 🔍",
-  "Slicing your document into breadcrumbs… 🍞",
-  "AI chef is prepping your roadmap ingredients… 👨‍🍳",
-  "Your file is being lovingly analysed… 💛",
-  "Almost there! Arranging the crumbs nicely… ✨",
+  "Analyzing file…",
+  "Reading your document…",
+  "Crumbling subtasks…",
+  "Building your roadmap…",
+  "Almost there…",
+  "Putting the pieces together…",
 ];
 
 function FileUploadZone({ onAtomizeFile, T }) {
@@ -682,7 +681,7 @@ function FileUploadZone({ onAtomizeFile, T }) {
         onClick={()=>fileRef.current?.click()}>
         <input type="file" ref={fileRef} hidden onChange={e=>processFile(e.target.files[0])} accept=".pdf,.txt,.docx,.png,.jpg,.jpeg" />
         <div style={{ marginBottom:"10px",display:"flex",justifyContent:"center" }}>
-          <img src={bufferload} alt="Upload" style={{ width:"100px",height:"100px",objectFit:"contain",opacity:dragging?1:0.7,animation:loading?"spin 2s linear infinite":"none" }} />
+          <img src={bufferload} alt="Upload" style={{ width:"100px",height:"100px",objectFit:"contain",opacity:dragging?1:0.7,animation:loading?"uploadFloat 1.8s ease-in-out infinite":"none" }} />
         </div>
         <div style={{ fontSize:"14px",fontWeight:"600",color:T.text }}>
           {loading ? "Analyzing your file…" : "Drop a file or click to upload"}
