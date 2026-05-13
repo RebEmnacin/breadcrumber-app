@@ -1,4 +1,7 @@
 <img src="frontend/src/assets/breadcrumber-banner.png" alt="breadcrumber" width="100%">
+
+https://github.com/user-attachments/assets/637d0323-cc1c-4289-8390-3fca0b666d16
+
 <img src="frontend/src/assets/breadcat-chomp.gif" alt="bread cat" align="right" width="150">
 
 **breadcrumbing** _<sup>verb.</sup>_\
