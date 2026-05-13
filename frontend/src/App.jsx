@@ -3,6 +3,8 @@ import { useStreak } from "./hooks/useStreak";
 import { atomizeProject, analyzeFile } from "./hooks/useApi";
 import icon from "./assets/favicon.png";
 import bufferload from "./assets/buffer-loading.png";
+import gif1frame1 from "./assets/gif1-frame1.png";
+import gif1frame2 from "./assets/gif1-frame2.png";
 
 const blankProject = () => ({
   nodes: [], activeNode: 0, xp: 0, completedNodes: [],
@@ -136,7 +138,7 @@ function TimerBreakPopup({ mode, onOkay, T }) {
           onMouseEnter={e => { e.currentTarget.style.transform="scale(1.06)"; e.currentTarget.style.boxShadow=`0 12px 40px ${isWork?"#ffbf6e88":"#4caf7d88"}`; }}
           onMouseLeave={e => { e.currentTarget.style.transform="scale(1)"; e.currentTarget.style.boxShadow=`0 8px 32px ${isWork?"#ffbf6e66":"#4caf7d66"}`; }}
         >
-          Okay! 👍
+          Okay! 
         </button>
         <div style={{ marginTop:"14px", fontSize:"11px", color:T.mutedText }}>
           {isWork ? "Timer has stopped — take your time." : "Press Okay to dismiss."}
@@ -449,15 +451,28 @@ function SidebarIcon({ onClick, title, children, active, T }) {
   );
 }
 
-function Sidebar({ onTimerToggle, isRunning, darkMode, onToggleDark, view, onSetView, T }) {
+function Sidebar({ onTimerToggle, isRunning, darkMode, onToggleDark, view, onSetView, isHome, T }) {
   return (
     <div style={{ backgroundColor:T.panelBg,width:"56px",minWidth:"56px",padding:"16px 8px",borderRadius:"30px",display:"flex",flexDirection:"column",alignItems:"center",gap:"8px",flexShrink:0 }}>
       <SidebarIcon onClick={()=>onSetView("home")} title="Home" active={view==="home"} T={T}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       </SidebarIcon>
-      <SidebarIcon onClick={onTimerToggle} title="Timer" active={isRunning} T={T}>
+      {/* Timer — disabled & dimmed on homepage */}
+      <button
+        onClick={isHome ? undefined : onTimerToggle}
+        title={isHome ? "Open a project to use the timer" : (isRunning ? "Pause timer" : "Start timer")}
+        style={{
+          background:"none", border:"none", cursor: isHome ? "not-allowed" : "pointer",
+          borderRadius:"10px", display:"flex", alignItems:"center", justifyContent:"center",
+          width:"38px", height:"38px",
+          color: isHome ? T.mutedText : (isRunning ? T.text : T.dimText),
+          backgroundColor: !isHome && isRunning ? T.cardBg : "transparent",
+          opacity: isHome ? 0.35 : 1,
+          transition:"color 0.2s, background-color 0.2s, opacity 0.2s",
+        }}
+      >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      </SidebarIcon>
+      </button>
       <SidebarIcon onClick={()=>onSetView(view==="album"?"roadmap":"album")} title="Proof Album" active={view==="album"} T={T}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
       </SidebarIcon>
@@ -491,7 +506,7 @@ function Nav({ tabs, activeTab, onTabClick, onAddTab, onCloseTab, onRenameTab, o
   }, [bellOpen]);
 
   return (
-    <div style={{ position:"relative",display:"flex",flexDirection:"column",width:"100%" }}>
+    <div style={{ display:"flex",flexDirection:"column",width:"100%",position:"relative" }}>
       {/* Delete from context menu confirm */}
       {pendingDeleteIdx !== null && (
         <DeleteConfirmModal
@@ -502,94 +517,84 @@ function Nav({ tabs, activeTab, onTabClick, onAddTab, onCloseTab, onRenameTab, o
         />
       )}
 
-      {/* Top-right: streak + bell */}
-      <div style={{ position:"absolute",top:"4px",right:"0px",display:"flex",alignItems:"center",gap:"10px",zIndex:10 }}>
-        <div style={{ display:"flex",alignItems:"center",gap:"6px",backgroundColor:T.panelBg,borderRadius:"8px",padding:"3px 10px" }}>
-          {/* Use favicon.png as streak icon */}
-          <img src={icon} alt="streak" style={{ width:"18px",height:"18px",objectFit:"contain" }} />
-          <span style={{ fontSize:"16px",fontWeight:"bold",color:T.text,lineHeight:1 }}>{streak}</span>
-        </div>
-        <div ref={bellRef} style={{ position:"relative" }}>
-          <button onClick={() => setBellOpen(o => !o)} style={{ background:"none",border:"none",color:bellOpen?T.text:T.dimText,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",width:"28px",height:"28px",position:"relative" }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-            </svg>
-            {notifications.length > 0 && <span style={{ position:"absolute",top:"4px",right:"4px",width:"7px",height:"7px",borderRadius:"50%",backgroundColor:"#ff4444",border:`1.5px solid ${T.bg}` }} />}
-          </button>
-          {bellOpen && <BellMenu notifications={notifications} onClear={() => { onClearNotifs(); setBellOpen(false); }} T={T} />}
+      {/* Single unified row: tabs left + streak/bell right, always aligned */}
+      <div style={{ display:"flex",alignItems:"flex-end",width:"100%",minHeight:"44px" }}>
+
+        {/* Tabs — only when not on homepage */}
+        {!isHome ? (
+          <div style={{ display:"flex",alignItems:"flex-end",overflowX:"auto",scrollbarWidth:"none",flex:1 }}>
+            {tabs.map((tab, i) => (
+              <div key={tab.id} style={{ position:"relative",display:"inline-flex",marginRight:"2px" }}>
+                {renamingTab === i ? (
+                  <input autoFocus value={renameVal} onChange={e=>setRenameVal(e.target.value)}
+                    onKeyDown={e=>{if(e.key==="Enter"){onRenameTab(i,renameVal);setRenamingTab(null);}if(e.key==="Escape")setRenamingTab(null);}}
+                    onBlur={()=>{if(renameVal.trim())onRenameTab(i,renameVal);setRenamingTab(null);}}
+                    style={{ width:"120px",padding:"8px 10px",borderRadius:"10px 10px 0 0",border:"2px solid #ffbf6e",background:T.cardBg,color:T.text,fontSize:"13px",fontFamily:"inherit",outline:"none" }}
+                  />
+                ) : (
+                  <button
+                    style={{ backgroundColor:activeTab===i?T.cardBg:T.panelBg,padding:"8px 28px 8px 12px",borderRadius:"10px 10px 0 0",color:activeTab===i?T.text:T.dimText,cursor:"pointer",fontSize:"13px",fontWeight:activeTab===i?"600":"400",border:"none",fontFamily:"inherit",maxWidth:"140px",minWidth:"60px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",display:"block" }}
+                    onClick={()=>onTabClick(i)}
+                    onContextMenu={e=>{e.preventDefault();setContextMenu({x:e.clientX,y:e.clientY,tabIndex:i});}}
+                    title={tab.label}
+                  >{tab.label}</button>
+                )}
+                {renamingTab !== i && (
+                  <button onClick={e=>{e.stopPropagation();onCloseTab(i);}}
+                    style={{ position:"absolute",top:"4px",right:"5px",background:"none",border:"none",color:T.mutedText,cursor:"pointer",fontSize:"12px",padding:"1px 2px",lineHeight:1 }}
+                    onMouseEnter={e=>e.currentTarget.style.color="#ff9999"}
+                    onMouseLeave={e=>e.currentTarget.style.color=T.mutedText}>×</button>
+                )}
+              </div>
+            ))}
+            {contextMenu && (
+              <>
+                <div style={{ position:"fixed",inset:0,zIndex:998 }} onClick={()=>setContextMenu(null)} />
+                <div style={{ position:"fixed",top:contextMenu.y,left:contextMenu.x,zIndex:999,backgroundColor:T.panelBg,border:`1px solid ${T.border}`,borderRadius:"10px",padding:"4px",boxShadow:"0 4px 20px rgba(0,0,0,0.3)",minWidth:"160px" }}>
+                  {[
+                    { label:"Rename", icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>, action:()=>{setRenameVal(tabs[contextMenu.tabIndex]?.label||"");setRenamingTab(contextMenu.tabIndex);setContextMenu(null);}, color:T.text },
+                    { label:"Close tab", icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>, action:()=>{onCloseTab(contextMenu.tabIndex);setContextMenu(null);}, color:T.text },
+                    { label:"Delete tab", icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>, action:()=>{setPendingDeleteIdx(contextMenu.tabIndex);setContextMenu(null);}, color:"#ff4444" },
+                  ].map((item,idx)=>(
+                    <button key={idx} onClick={item.action}
+                      style={{ display:"flex",alignItems:"center",gap:"10px",width:"100%",padding:"8px 14px",border:"none",background:"none",color:item.color,textAlign:"left",cursor:"pointer",fontSize:"13px",fontFamily:"inherit",borderRadius:"7px" }}
+                      onMouseEnter={e=>e.currentTarget.style.background=T.cardBg}
+                      onMouseLeave={e=>e.currentTarget.style.background="none"}>
+                      {item.icon}{item.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            <button onClick={onAddTab}
+              style={{ backgroundColor:"#ffbf6e",border:"none",borderRadius:"50%",width:"24px",height:"24px",color:"#0E131C",fontSize:"16px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",marginLeft:"8px",marginBottom:"6px",flexShrink:0 }}>
+              +
+            </button>
+          </div>
+        ) : (
+          <div style={{ flex:1 }} />
+        )}
+
+        {/* Streak + bell — always right-aligned, bottom-aligned with tabs */}
+        <div style={{ display:"flex",alignItems:"center",gap:"10px",paddingBottom:"6px",paddingLeft:"12px",flexShrink:0 }}>
+          <div style={{ display:"flex",alignItems:"center",gap:"6px",backgroundColor:T.panelBg,borderRadius:"8px",padding:"5px 12px" }}>
+            <img src={icon} alt="streak" style={{ width:"20px",height:"20px",objectFit:"contain" }} />
+            <span style={{ fontSize:"16px",fontWeight:"bold",color:T.text,lineHeight:1 }}>{streak}</span>
+          </div>
+          <div ref={bellRef} style={{ position:"relative" }}>
+            <button onClick={()=>setBellOpen(o=>!o)}
+              style={{ background:"none",border:"none",color:bellOpen?T.text:T.dimText,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",width:"32px",height:"32px",position:"relative",borderRadius:"8px",transition:"color 0.2s" }}
+              onMouseEnter={e=>e.currentTarget.style.color=T.text}
+              onMouseLeave={e=>{if(!bellOpen)e.currentTarget.style.color=T.dimText;}}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              {notifications.length > 0 && <span style={{ position:"absolute",top:"5px",right:"5px",width:"7px",height:"7px",borderRadius:"50%",backgroundColor:"#ff4444",border:`1.5px solid ${T.bg}` }} />}
+            </button>
+            {bellOpen && <BellMenu notifications={notifications} onClear={()=>{onClearNotifs();setBellOpen(false);}} T={T} />}
+          </div>
         </div>
       </div>
-
-      {/* Tabs — hidden when on homepage */}
-      {!isHome && (
-        <div style={{ display:"flex",alignItems:"flex-end",overflowX:"auto",scrollbarWidth:"none",marginTop:"8px" }}>
-          {tabs.map((tab, i) => (
-            <div key={tab.id} style={{ position:"relative",display:"inline-flex",marginRight:"2px" }}>
-              {renamingTab === i ? (
-                <input autoFocus value={renameVal} onChange={e => setRenameVal(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter") { onRenameTab(i, renameVal); setRenamingTab(null); } if (e.key === "Escape") setRenamingTab(null); }}
-                  onBlur={() => { if (renameVal.trim()) onRenameTab(i, renameVal); setRenamingTab(null); }}
-                  style={{ width:"120px",padding:"8px 10px",borderRadius:"10px 10px 0 0",border:"2px solid #ffbf6e",background:T.cardBg,color:T.text,fontSize:"13px",fontFamily:"inherit",outline:"none" }}
-                />
-              ) : (
-                <button
-                  style={{ backgroundColor:activeTab===i?T.cardBg:T.panelBg,padding:"8px 28px 8px 12px",borderRadius:"10px 10px 0 0",color:activeTab===i?T.text:T.dimText,cursor:"pointer",fontSize:"13px",fontWeight:activeTab===i?"600":"400",border:"none",fontFamily:"inherit",maxWidth:"140px",minWidth:"60px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",display:"block" }}
-                  onClick={() => onTabClick(i)}
-                  onContextMenu={e => { e.preventDefault(); setContextMenu({ x:e.clientX, y:e.clientY, tabIndex:i }); }}
-                  title={tab.label}
-                >{tab.label}</button>
-              )}
-              {renamingTab !== i && (
-                <button onClick={e => { e.stopPropagation(); onCloseTab(i); }}
-                  style={{ position:"absolute",top:"4px",right:"5px",background:"none",border:"none",color:T.mutedText,cursor:"pointer",fontSize:"12px",padding:"1px 2px",lineHeight:1 }}
-                  onMouseEnter={e=>e.currentTarget.style.color="#ff9999"}
-                  onMouseLeave={e=>e.currentTarget.style.color=T.mutedText}>×</button>
-              )}
-            </div>
-          ))}
-
-          {/* Context menu: Rename, Close tab, Delete tab */}
-          {contextMenu && (
-            <>
-              <div style={{ position:"fixed",inset:0,zIndex:998 }} onClick={() => setContextMenu(null)} />
-              <div style={{ position:"fixed",top:contextMenu.y,left:contextMenu.x,zIndex:999,backgroundColor:T.panelBg,border:`1px solid ${T.border}`,borderRadius:"10px",padding:"4px",boxShadow:"0 4px 20px rgba(0,0,0,0.3)",minWidth:"160px" }}>
-                {[
-                  {
-                    label:"Rename",
-                    icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
-                    action: () => { setRenameVal(tabs[contextMenu.tabIndex]?.label || ""); setRenamingTab(contextMenu.tabIndex); setContextMenu(null); },
-                    color: T.text,
-                  },
-                  {
-                    label:"Close tab",
-                    icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
-                    action: () => { onCloseTab(contextMenu.tabIndex); setContextMenu(null); },
-                    color: T.text,
-                  },
-                  {
-                    label:"Delete tab",
-                    icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>,
-                    action: () => { setPendingDeleteIdx(contextMenu.tabIndex); setContextMenu(null); },
-                    color: "#ff4444",
-                  },
-                ].map((item, idx) => (
-                  <button key={idx} onClick={item.action}
-                    style={{ display:"flex",alignItems:"center",gap:"10px",width:"100%",padding:"8px 14px",border:"none",background:"none",color:item.color,textAlign:"left",cursor:"pointer",fontSize:"13px",fontFamily:"inherit",borderRadius:"7px" }}
-                    onMouseEnter={e => e.currentTarget.style.background=T.cardBg}
-                    onMouseLeave={e => e.currentTarget.style.background="none"}>
-                    {item.icon}{item.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-
-          <button onClick={onAddTab}
-            style={{ backgroundColor:"#ffbf6e",border:"none",borderRadius:"50%",width:"24px",height:"24px",color:"#0E131C",fontSize:"16px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",marginLeft:"8px",marginBottom:"6px",flexShrink:0 }}>
-            +
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -804,6 +809,22 @@ function CountdownTimer({ timer, T }) {
   );
 }
 
+// ── Streak Mascot — animated between two gif frames ───────────────────────────
+function StreakMascot() {
+  const [frame, setFrame] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setFrame(f => (f + 1) % 2), 600);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <img
+      src={frame === 0 ? gif1frame1 : gif1frame2}
+      alt="streak mascot"
+      style={{ width:"120px", height:"120px", objectFit:"contain", filter:"drop-shadow(0 4px 16px #ffbf6e44)" }}
+    />
+  );
+}
+
 // ── Scoreboard ────────────────────────────────────────────────────────────────
 function Scoreboard({ xp, streak, timer, totalNodes, T }) {
   const maxXp=(totalNodes||5)*150, pct=(xp/maxXp)*100;
@@ -811,9 +832,9 @@ function Scoreboard({ xp, streak, timer, totalNodes, T }) {
   const sub=streak>=7?"Unstoppable! 🔥":streak>=3?"Keep it up!":streak>=1?"Good start!":"Complete a task to start!";
   return (
     <div className={T.scrollbar} style={{ flex:1,backgroundColor:T.panelBg,borderRadius:"20px",padding:"20px 16px",display:"flex",flexDirection:"column",alignItems:"center",overflowY:"auto" }}>
-      {/* Favicon as streak mascot instead of gif */}
+      {/* Animated streak mascot (gif1 frames) */}
       <div style={{ marginBottom:"6px",lineHeight:1 }}>
-        <img src={icon} alt="streak" style={{ width:"120px",height:"120px",objectFit:"contain",filter:"drop-shadow(0 4px 16px #ffbf6e66)",animation:"floatBob 3s ease-in-out infinite" }} />
+        <StreakMascot />
       </div>
       <div style={{ fontSize:"15px",fontWeight:"bold",color:T.text,textAlign:"center",marginBottom:"2px" }}>{msg}</div>
       <div style={{ fontSize:"12px",color:T.subText,textAlign:"center",marginBottom:"14px" }}>{sub}</div>
@@ -1089,11 +1110,12 @@ export default function Breadcrumber() {
         @keyframes floatBob      { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
         ::placeholder { color: #889; }
         * { box-sizing: border-box; }
+        html { font-size: 17px; }
         .upload-zone:hover { border-color: #ffbf6e !important; }
-        .scrollbar-light::-webkit-scrollbar{width:6px}
+        .scrollbar-light::-webkit-scrollbar{width:7px}
         .scrollbar-light::-webkit-scrollbar-track{background:#d4b896;border-radius:10px}
         .scrollbar-light::-webkit-scrollbar-thumb{background:#b89470;border-radius:10px}
-        .scrollbar-dark::-webkit-scrollbar{width:6px}
+        .scrollbar-dark::-webkit-scrollbar{width:7px}
         .scrollbar-dark::-webkit-scrollbar-track{background:#1a1f35;border-radius:10px}
         .scrollbar-dark::-webkit-scrollbar-thumb{background:#3a4060;border-radius:10px}
         .scrollbar-dark::-webkit-scrollbar-thumb:hover{background:#556080}
@@ -1108,7 +1130,7 @@ export default function Breadcrumber() {
           isRunning={timer.isRunning}
           darkMode={darkMode}
           onToggleDark={() => { setDarkMode(d => { localStorage.setItem("darkMode", String(!d)); return !d; }); }}
-          view={view} onSetView={setView} T={T}
+          view={view} onSetView={setView} isHome={isHome} T={T}
         />
         <div style={{ flex:1,display:"flex",flexDirection:"column",minWidth:0 }}>
           <Nav
